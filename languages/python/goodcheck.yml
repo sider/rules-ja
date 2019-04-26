@@ -1,0 +1,107 @@
+rules:
+  - id: review.sider.python.django.makemigrations
+    pattern:
+      regexp: \w*Field
+    glob:
+      - "**/models.py"
+      - "**/models/*.py"
+    message: |
+      `django-admin makemigrations`は実行しましたか？
+
+      モデルのフィールドを修正した場合データベーススキーマの更新が必要です。
+      参考: https://docs.djangoproject.com/en/2.2/topics/migrations/#workflow
+    fail: |
+      name = models.CharField(max_length=200, blank=True)
+    justification:
+      - 注意喚起のためのリマインダです。すでに実行済みの場合はCloseしてください
+  - id: review.sider.python.except-all
+    pattern:
+      - token: 'except:'
+      - token: except Exception
+      - token: except BaseException
+    glob:
+      - "**/*.py"
+    message: |
+      本当に例外をすべてキャッチしたほうがいいですか？
+
+      例外をすべてキャッチするとバグの発見が遅れる可能性があります。
+      すべての例外をキャッチする必要があるか念の為確認しましょう。
+      特定の例外だけ補足すればいいのであればその例外クラスを使用しましょう。
+
+      参考: https://realpython.com/the-most-diabolical-python-antipattern/
+    fail:
+      - |
+        try:
+            foo()
+        except:
+            pass
+      - |
+        try:
+            foo()
+        except Exception as e:
+            print(e)
+      - |
+        try:
+            foo()
+        except BaseException:
+            pass
+    pass: |
+      try:
+          foo()
+      except FooError:
+          pass
+    justification:
+      - 注意喚起のためのリマインダです。問題がなければCloseしてください
+  - id: review.sider.python.double-decorators
+    pattern:
+      regexp: (?:@\w[^\n]*\n+\s*){2,}(?:def|class)
+      multiline: true
+    glob:
+      - "**/*.py"
+    message: |
+      デコレーターを複数指定する必要はありますか？
+
+      複数のデコレーターを指定すると関数やクラスの挙動が理解しづらくなります。
+      デコレーターではなく普通の関数を定義し、その関数を呼び出すだけで十分ではなないですか？
+    fail: |
+      @foo
+      @bar(x, y)
+      def func():
+          do_something()
+    justification:
+      - Djangoなどのフレームワークで必要な場合
+      - 複数のデコレーターが設計上妥当な場合
+  - id: review.sider.python.super
+    pattern:
+      regexp: super\(\w+, \w+\)
+    glob:
+      - "**/*.py"
+    message: |
+      Python 3では単に`super()`と書くだけで十分です。
+
+      単に1つしかない継承元の実装を呼び出すだけであれば`super(Foo, self)`
+      ではなく`super()`で十分です。
+    fail: |
+      super(Foo, self).__init__(*args)
+    pass: |
+      super().__init__(*args)
+    justification:
+      - Python 2である
+      - 継承元が2つ以上あり直接の継承元ではない実装を呼び出したいとき
+  - id: review.sider.python.file-open
+    pattern:
+      token: open
+    glob:
+      - "**/*.py"
+    message: |
+      `with`を使いましょう。
+
+      `open`したファイルオブジェクトをクローズするには明示的に`close`を
+      呼ぶ必要があります。`with`は、処理終了後に`close`を自動で実行します。
+      単に便利なだけではなく、ファイルオープン中に例外が発生しても
+      ファイルクローズの実行が保証されるというメリットがあります。
+    fail: |
+      open('foo.txt')
+    justification:
+      - すでに`with`を使用している
+      - この`open`はビルトインの`open`ではない
