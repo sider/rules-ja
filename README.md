@@ -25,5 +25,15 @@ languages
 
 [Sider](https://sider.review) を使ってコードのチェックを実施することを前提にしております。
 
+### goodcheck.yml
+
 - 基本は、リポジトリ直下に、リポジトリの内容（主な言語）に対応した goodcheck.yml を配置します
+- Siderの解析に利用したいToolから、Goodcheckを有効にします
 - Siderに連携したリポジトリにプルリクエストが作成された段階で、この定義に応じたチェックが実施されます
+
+### phinder.yml (PHP用)
+
+- 基本は、リポジトリ直下に、phinder.yml を配置します
+- Siderの解析に利用したいToolから、Phinderを有効にします
+- Siderに連携したリポジトリにプルリクエストが作成された段階で、この定義に応じたチェックが実施されます
+
