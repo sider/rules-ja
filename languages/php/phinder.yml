@@ -1,0 +1,131 @@
+- id: review.sider.php.hash
+  pattern:
+    - md5(_)
+    - sha1(_)
+  message: |
+    md5 や sha1 をパスワードのハッシュ化に使わないでください
+
+    `md5` や `sha1` などの一般のハッシュアルゴリズムは、パスワードを守るために使うべきではありません。
+    `password_hash` 関数を使って、より適切な `bcrypt` などのハッシュアルゴリズムを利用しましょう。
+
+    - https://www.php.net/manual/ja/function.md5.php
+    - https://www.php.net/manual/ja/function.sha1.php
+    - https://www.php.net/manual/ja/function.password-hash.php
+  test:
+    fail:
+      - md5($raw_password . $salt)
+      - sha1($raw_password . $salt)
+    pass:
+      - password_hash($raw_password, PASSWORD_DEFAULT)
+
+- id: review.sider.setcookie
+  pattern: 
+    - setcookie(_)
+    - setcookie(_, _)
+    - setcookie(_, _, _)
+    - setcookie(_, _, _, _)
+    - setcookie(_, _, _, _, _)
+  message: |
+    Cookieを使うときには適切な引数を設定してください
+
+    サービスがHTTPSで提供されている場合には、第6引数に true を指定します。
+    JavaScriptから参照されることがない場合には、第7引数に true を指定します。
+
+    - https://www.php.net/manual/ja/function.setcookie.php
+  test:
+    fail:
+      - setcookie($name, $value)
+      - setcookie($name, $value, time()+3600)
+      - setcookie($name, $value, time()+3600, 'example.com')
+      - setcookie($name, $value, time()+3600, 'example.com', '')
+    pass:
+      - setcookie($name, $value, time()+3600, 'example.com', '', false, true)
+      - setcookie($name, $value, time()+3600, 'example.com', '', true, true)
+
+- id: review.sider.uniqid
+  pattern: uniqid(...)
+  message: |
+    uniqid 関数が生成する値は、暗号学的に安全ではありません
+
+    暗号学的に安全な（予測不可能な）乱数が必要な場合には、 `random_bytes` を使いましょう。
+
+    - https://www.php.net/manual/ja/function.uniqid.php
+  test:
+    fail:
+      - uniqid()
+      - uniqid(true)
+    pass:
+      - random_bytes(13)
+
+- id: review.sider.php.72.create_function
+  pattern: create_function(...)
+  message: |
+    create_function の代わりに無名関数を使ってください
+
+    `create_function` 関数はPHP 7.2で非推奨になりました。
+
+    - https://www.php.net/manual/ja/functions.anonymous.php
+  fail:
+    - create_function('$var', 'return "Hello,{$var}";');
+  pass:
+    - function ($var) { return "Hello,{$var}"; }
+
+- id: review.sider.php.72.parse_str
+  pattern: parse_str(_)
+  message: |
+    parse_str を使う場合には第2引数を指定してください。
+
+    PHP 7.2から、第二引数を省略することは非推奨となりました。
+    入力される文字列によって、意図しない変数の代入が発生するため、必ず第2引数を指定してください。
+
+    - https://www.php.net/manual/ja/function.parse-str.php
+  fail:
+    - parse_str("password=topsecret")
+  pass:
+    - parse_str("password=topsecret", $output)
+
+- id: review.sider.php.72.each
+  pattern: each(_)
+  message: |
+    each ではなく foreach を使ってください
+
+    `each` 関数は、PHP 7.2で非推奨となりました。
+    `foreach` 構文を使用してください。
+
+    - https://www.php.net/manual/ja/control-structures.foreach.php
+  fail:
+    - each($arr)
+  pass:
+    - foreach($arr as $var) { echo $var; }
+
+- id: review.sider.php.72.gmp_random
+  pattern: gmp_random(_)
+  message: |
+    gmp_random ではなく gmp_random_range を使ってください
+
+    この関数は、PHP 7.2 で非推奨となりました。
+    gmp_random で得られる乱数の上限はプラットフォーム依存で、ユーザーが事前に確認することはできません。    
+    上限と下限が指定できる、より柔軟な gmp_random_range 関数を利用してください。
+
+    - https://wiki.php.net/rfc/deprecations_php_7_2#gmp_random
+    - https://www.php.net/manual/ja/function.gmp-random-range.php
+  fail:
+    - gmp_random(1)
+  pass:
+    - gmp_random_range(0, 100)
+
+- id: review.sider.php.73.image2wbmp
+  pattern: image2wbmp(...)
+  message: |
+    image2wbmp ではなく imagewbmp を使ってください
+
+    この関数は、 PHP 7.3 で非推奨となりました。
+    同等の機能を持つ imagewbmp を使用しましょう。
+
+    - https://www.php.net/manual/ja/function.imagewbmp.php
+    - https://wiki.php.net/rfc/image2wbmp
+  fail:
+    - image2wbmp($image)
+  pass:
+    - imagewbmp($image)
+
