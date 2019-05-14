@@ -1,0 +1,124 @@
+- id: review.sider.java.apache-commons.char-utils_is-ascii
+  pattern:
+    - token: CharUtils.isAscii(
+  message: |
+    isAsciiはASCIIの制御文字についても true を返します
+
+    `isAscii('\n')` は `true` です。
+    ASCIIの範囲の表示される文字かどうかを調べるには `isAsciiPrintable` を使いましょう。
+
+    - https://commons.apache.org/proper/commons-lang/javadocs/api-release/org/apache/commons/lang3/CharUtils.html#isAscii-char-
+    - https://commons.apache.org/proper/commons-lang/javadocs/api-release/org/apache/commons/lang3/CharUtils.html#isAsciiPrintable-char-
+  justification:
+    - Apache Commons Langを使用していない場合
+  glob:
+    - "**/*.java"
+  fail:
+    - CharUtils.isAscii(c);
+  pass:
+    - CharUtils.isAsciiPrintable(c);
+
+- id: review.sider.java.apache-commons.collection-utils_is-empty
+  pattern:
+    - token: "size()==0"
+    - token: ".isEmpty()"
+  message: |
+    Collectionが空かを調べる際には、CollectionUtils.isEmptyを使ってください
+
+    引数が `null` の場合には、 `true` を返します。
+
+    - https://commons.apache.org/proper/commons-collections/apidocs/org/apache/commons/collections4/CollectionUtils.html#isEmpty-java.util.Collection-
+  justification:
+    - Apache Commons Collectionsを使用していない場合
+  glob:
+    - "**/*.java"
+  fail:
+    - foo.size() == 0
+    - foo.isEmpty()
+  pass:
+    - CollectionUtils.isEmpty(foo)
+
+- id: review.sider.java.apache-commons.string-utils_is-alpha-numeric
+  pattern:
+    - token: StringUtils.isAlphanumeric(
+    - token: StringUtils.isAlpha(
+  message: |
+    文字列が半角英数字かどうかを調べる場合には、StringUtilsを使わないでください
+
+    `StringUtils.isAlphanumeric` や `StringUtils.isAlpha` は、ユニコードで定義された「文字 (letter)」や「数字 (digits)」に基づいて、文字列を検査します。
+    つまり、漢字や平仮名を含むような文字列も `true` と判定されます。
+    句読点やスペースを含む場合には `false` となります。
+
+    半角英数字(ASCIIの範囲での文字)かどうかを判定するには、単純に正規表現等を使用して含まれる文字種を検査してください。
+
+    - https://commons.apache.org/proper/commons-lang/javadocs/api-release/org/apache/commons/lang3/StringUtils.html#isAlphanumeric-java.lang.CharSequence-
+    - https://commons.apache.org/proper/commons-lang/javadocs/api-release/org/apache/commons/lang3/StringUtils.html#isAlpha-java.lang.CharSequence-
+    - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#matches-java.lang.String-
+  justification:
+    - Apache Commons Langを使用していない場合
+  glob:
+    - "**/*.java"
+  fail:
+    - StringUtils.isAlphanumeric(string);
+    - StringUtils.isAlpha(string);
+  pass:
+    - string.match(/^[0-9A-Za-z]+$/)
+    - string.match(/^[A-Za-z]+$/)
+
+- id: review.sider.java.apache-commons.string-utils_is-empty
+  pattern: .equals("")
+  message: |
+    文字列が空かどうかを調べる際には、StringUtils.isEmptyを使ってください
+
+    引数が `null` の場合には、 `true` を返します。
+
+    - https://commons.apache.org/proper/commons-lang/javadocs/api-release/org/apache/commons/lang3/StringUtils.html#isEmpty-java.lang.CharSequence-
+  justification:
+    - Apache Commons Langを使用していない場合
+  glob:
+    - "**/*.java"
+  fail:
+    - foo.equals("")
+  pass:
+    - StringUtils.isEmpty(foo)
+
+- id: review.sider.java.apache-commons.weak_hash
+  pattern:
+    - DigestUtils.getMd2Digest()
+    - DigestUtils.getMd5Digest()
+    - DigestUtils.getShaDigest()
+    - DigestUtils.getSha1Digest()
+    - DigestUtils.md2
+    - DigestUtils.md5
+    - DigestUtils.sha(
+    - DigestUtils.shaHex(
+    - DigestUtils.sha1
+    - new DigestUtils(MD2)
+    - new DigestUtils(MD5)
+    - new DigestUtils(SHA_1)
+    - new DigestUtils(MessageDigestAlgorithms.MD2)
+    - new DigestUtils(MessageDigestAlgorithms.MD5)
+    - new DigestUtils(MessageDigestAlgorithms.SHA_1)
+  message: |
+    脆弱なハッシュアルゴリズムの使用を避け、より強度の高いハッシュアルゴリズムを使用してください
+
+    MD2, MD5, SHA-1は、脆弱なハッシュアルゴリズムです。
+    意図的な衝突攻撃が確立されているため、これら脆弱なハッシュアルゴリズムの使用は避けてください。
+    最低でもSHA-256か、それ以上の強度を持つハッシュアルゴリズムを選択してください。
+
+    - https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/digest/DigestUtils.html
+    - https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/digest/MessageDigestAlgorithms.html
+    - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_MD5
+    - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_SHA1
+  justification:
+    - Apache Commons Codecを使用していない場合
+  glob:
+    - "**/*.java"
+  fail:
+    - DigestUtils.shaHex("clear text");
+    - DigestUtils.getMd5Digest().digestAsHex("clear text");
+    - new DigestUtils(MessageDigestAlgorithms.SHA_1).digestAsHex("clear text")
+  pass:
+    - DigestUtils.sha256Hex("clear text");
+    - DigestUtils.getSha512Digest().digestAsHex("clear text");
+    - new DigestUtils(MessageDigestAlgorithms.SHA_384).digestAsHex("clear text")

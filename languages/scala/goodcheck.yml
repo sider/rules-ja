@@ -1,0 +1,56 @@
+rules:
+  - id: review.sider.scala.minimize_mutability
+    pattern:
+      token: var
+    message: |
+      可変な状態を避けてください
+
+      可変な状態は一般的にバグを生み出しやすいため。
+      たとえば並行プログラミングにおいて、可変な状態をスレッド間で共有することは、競合状態やデッドロックといった問題を引き起こします。
+      また、何らかのバグに遭遇したとき、そのスコープにある可変のものはすべて疑う対象になりえます。
+      意図せぬ値が束縛されていたことが直接的、ないしは間接的な原因になりうるからです。
+
+      - Excerpt From: 瀬良和弘、水島宏太、河内崇、麻植泰輔、青山直紀. “実践Scala入門.”
+    justification:
+      - 可変な変数やコレクションを使うほうが結果的に計算が早く済む場合
+    glob:
+      - "**/*.scala"
+    fail: |
+      var x = 5
+    pass: |
+      val x = 5
+
+  - id: review.sider.scala.higher_order_function
+    pattern:
+      token: while
+    message: |
+      値を返さないwhileや、do-whileや、(yieldのない)forを使うのは避けてください
+
+      合成やテストがしやすいなど取り回しがよいため。
+      もし何か副作用を目的とする場合でも、たいていの場合はyield付きのfor式を使って戻り値を得て、その戻り値に対して副作用のある関数を呼び出す、という書き方をするほうが取り回しがよいでしょう。
+
+      - Excerpt From: 瀬良和弘、水島宏太、河内崇、麻植泰輔、青山直紀. “実践Scala入門.”
+    glob:
+      - "**/*.scala"
+    fail: |
+      - while
+      - do-while
+    pass: |
+      for() yield
+
+  - id: review.sider.scala.return
+    pattern:
+      token: return
+    message: |
+      計算結果を返すためにreturnを使うのは避けてください
+
+      ブロック式が式として値を返すために明示的なreturnは不要です。
+      `return` は、バイトコードでは例外を `throw` と `catch` するコードとして実装されるので、実行頻度の高いコード内で使うと性能に影響を与えます。
+
+      - http://twitter.github.io/effectivescala/index-ja.html
+    justification:
+      - 早期に終了させることで処理速度や可読性が上がる場合
+    glob:
+      - "**/*.scala"
+    fail: |
+      return

@@ -1,94 +1,31 @@
+import:
+  - goodcheck.apache-commons.yml
+  - goodcheck.junit.yml
+  - goodcheck.spring.yml
+
 rules:
-  - id: review.sider.java.package_naming
-    pattern:
-      regexp: "package [a-z0-9\\.]*[A-Z_]+[a-z0-9\\.]*;"
+  - id: review.sider.java.lang.allow-origin
+    pattern: 
+      - addHeader("Access-Control-Allow-Origin", "*")
     message: |
-      パッケージ名での英大文字やアンダースコアの使用は推奨されません。
-      
-      - https://google.github.io/styleguide/javaguide.html#s5.2.1-package-names
+      クロスドメインに対するリソース共有許可範囲が広すぎます
+
+      `Access-Control-Allow-Origin` に `*` をせっていすると、
+      サービスが保有しているリソースへのアクセスを、不特定多数に許可することになります。
+
+      `Access-Control-Allow-Origin` を設定する場合、自身で管理しているドメインや、
+      事前にリソースの使用許可を確認しているドメイン等、信頼されているドメインに限定してください。
+
+      - https://javaee.github.io/javaee-spec/javadocs/javax/servlet/http/HttpServletResponse.html#addHeader-java.lang.String-java.lang.String-
+      - https://find-sec-bugs.github.io/bugs.htm#PERMISSIVE_CORS
     glob:
       - "**/*.java"
     fail: |
-      package review.sider.goodcheck_example;
+      response.addHeader("Access-Control-Allow-Origin", "*");
     pass: |
-      package review.sider.goodcheck.example;
+      response.addHeader("Access-Control-Allow-Origin", "*.your-domain.com");
 
-  - id: review.sider.java.constants_naming
-    pattern:
-      regexp: "(?:private|protected|public)?[\\s]+(?:static[\\s]+final|final[\\s]+static)[\\s]+String[\\s]+(EMPTY|empty|BLANK|blank)[\\s]*=[\\s]*\"\""
-    message: |
-      空文字はそれ自体で十分に意味が通るため、そのままの命名で定数化すべきではありません。
-
-      Javaでは同一のリテラルは、同一のメモリ上で保存、参照されるため、パフォーマンス上の定数化メリットはありません。
-      また`""`は、それ自体で空文字であることが明らかなため、`EMPTY`、`BLANK`といった命名をする場合、定数化によるメリットはありません。
-      もし`""`に、なにか特別な意味を持たせるのであれば、別の命名を検討してください。
-
-      - https://stackoverflow.com/questions/4095501/is-stringutils-empty-recommended/39686011
-    glob:
-      - "**/*.java"
-
-  - id: review.sider.java.nop-bit-operator
-    pattern:
-      - " & -1"
-      - " | 0"
-      - " ^ 0"
-      - "-1 & "
-      - "0 | "
-      - "0 ^ "
-    message: |
-      元の値と同じ結果の得られる、不必要なビット演算です
-      
-      - https://rules.sonarsource.com/java/RSPEC-2437
-    glob:
-      - "**/*.java"
-    fail:
-      - value & -1
-      - value | 0
-      - value ^ 0
-      - -1 & 123
-      - 0 | 123
-      - 0 ^ 123
-
-  - id: review.sider.java.truthy_condition
-    pattern:
-      token: "if(true)"
-    message: |
-      条件は常に真となるため不要です
-    glob:
-      - "**/*.java"
-    fail: |
-      if (true) { System.out.println("anything to do"); }
-    pass: |
-      System.out.println("anything to do");
-
-  - id: review.sider.java.falsey_condition
-    pattern:
-      token: "if(false)"
-    message: |
-      条件は常に偽となるため不要です
-    glob:
-      - "**/*.java"
-    fail: |
-      if (false) { System.out.println("anything to do"); }
-    pass: |
-      // nothing to do
-
-  - id: review.sider.java.both-sides-evaluate-or-condition
-    pattern:
-      regexp: "if[\\s]*\\([^|]+\\|[^|]+\\)"
-    message: |
-      不必要な条件の評価が発生する恐れがあります
-
-      `|` 演算子を使用してしまうと、演算子の第一項が真であった場合でも、第二項が評価されてしまいます。
-      `||` 演算子を使用することで、演算子の第一項が真であった場合に、第二項の評価が省略されます。
-    
-      - https://rules.sonarsource.com/java/RSPEC-2178
-    fail: |
-      if (i == 0 | i + 1 == list.size()) { .. }
-    pass: |
-      if (i == 0 || i + 1 == list.size()) { .. }
-
-  - id: review.sider.java.both-sides-evaluate-and-condition
+  - id: review.sider.java.lang.both_sides_evaluate_and-condition
     pattern:
       regexp: "if[\\s]*\\([^&]+&[^&]+\\)"
     message: |
@@ -99,37 +36,31 @@ rules:
       とくにnull検査と併用しているような場合、この誤用により `NullPointerException` 発生のリスクが高まりますので注意してください。
 
       - https://rules.sonarsource.com/java/RSPEC-2178
+    glob:
+      - "**/*.java"
     fail: |
       if (name != null & name.equals("alice")) // NullPointerException risk
     pass: |
       if (name != null && name.equals("alice")) { .. }
 
-  - id: review.sider.java.formats
-    pattern: 
-      - token: new SimpleDateFormat
-      - token: new ChoiceFormat
-      - token: new DecimalFormat
-      - token: new MessageFormat
+  - id: review.sider.java.lang.both_sides_evaluate_or-condition
+    pattern:
+      regexp: "if[\\s]*\\([^|]+\\|[^|]+\\)"
     message: |
-      日付フォーマット、数値フォーマット、メッセージフォーマットは同期化しましょう
+      不必要な条件の評価が発生する恐れがあります
 
-      日付フォーマットや数値フォーマットは同期化されていないため、複数のスレッドから同時にアクセスされると意図しない結果になります。
-      ロックなどで同期化するか、ローカル変数として定義してください。
-      
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/DateFormat.html#synchronization
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/NumberFormat.html#synchronization
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/MessageFormat.html#synchronization
-    justification:
-      - スレッド領域から脱出しない場合
-      - 自前の同期化を実装している場合
+      `|` 演算子を使用してしまうと、演算子の第一項が真であった場合でも、第二項が評価されてしまいます。
+      `||` 演算子を使用することで、演算子の第一項が真であった場合に、第二項の評価が省略されます。
+    
+      - https://rules.sonarsource.com/java/RSPEC-2178
     glob:
       - "**/*.java"
-    fail: 
-      - private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-      - private static final NumberFormat numberFormat = new DecimalFormat("#,###");
-      - private static final MessageFormat numberFormat = new MessageFormat("Code {0}, Message {1}");
+    fail: |
+      if (i == 0 | i + 1 == list.size()) { .. }
+    pass: |
+      if (i == 0 || i + 1 == list.size()) { .. }
 
-  - id: review.sider.java.clone
+  - id: review.sider.java.lang.clone
     pattern: 
       - regexp: "public [a-zA-Z0-9_$]+ clone\\(\\)"
       - token: "Cloneable"
@@ -164,7 +95,317 @@ rules:
             public Item(Item item) { .. }
         }
 
-  - id: review.sider.java.hardcoding-password
+  - id: review.sider.java.lang.close
+    pattern:
+      token: .close()
+    message:
+      close を明示的に呼び出すのではなく try-with-resource で処理しましょう
+    justification:
+      - Java6以前を使用している場合
+    glob:
+      - "**/*.java"
+    fail: |
+      InputStream inputStream = null;
+      try {
+          inputStream = new FileInputStream("read/file/path");
+          // something to do
+      } catch (IOException e) {
+          // something to do
+      } finally {
+          if (inputStream != null) {
+              try {
+                  inputStream.close(); // 検査例外IOExceptionが発生するため例外処理が強制される
+              } catch (IOException e) {
+                  // nothing to do
+              }
+          }
+      }
+    pass: |
+      try (InputStream inputStream = new FileInputStream("read/file/path")) {
+          // something to do
+      } catch (IOException e) {
+          // something to do
+      }
+
+  - id: review.sider.java.lang.collection_interface
+    pattern:
+      - regexp: "ArrayList[\\s]*<?[a-zA-Z0-9_$,<>\\?\\s]*>?[\\s]+[a-zA-Z0-9_$]+"
+      - regexp: "HashMap[\\s]*<?[a-zA-Z0-9_$,<>\\?\\s]*>?[\\s]+[a-zA-Z0-9_$]+"
+      - regexp: "HashSet[\\s]*<?[a-zA-Z0-9_$,<>\\?\\s]*>?[\\s]+[a-zA-Z0-9_$]+"
+    message: |
+      型宣言中では一般的なインタフェースを使いましょう
+
+      変数の型やメソッドの型宣言では、
+
+      - `ArrayList` ではなく `List` を使う
+      - `HashMap` ではなく `Map` を使う
+      - `HashSet` ではなく `Set` を使う
+
+      ようにしましょう。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/ArrayList.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/HashMap.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/HashSet.html
+    justification:
+      - アルゴリズムの要請から、それぞれのコレクション実装に基づく性質が必要な場合（ `ArrayList` における定数時間での `get` や `set` など）
+    glob:
+      - "**/*.java"
+    fail:
+      - ArrayList<String> foo = new ArrayList<>;
+      - HashMap<String, String> bar = new HashMap<>;
+      - HashSet<String> baz = new HashSet<>;
+      - ArrayList<Map<String, Object>> foo = new ArrayList<>;
+      - HashMap<String, ? extends List<String>> bar = new HashMap<>;
+    pass:
+      - List<String> foo = new ArrayList<>;
+      - Map<String, String> bar = new HashMap<>;
+      - Set<String> baz= new HashSet<>;
+      - List<Map<String, Object>> foo = new ArrayList<>;
+      - Map<String, ? extends List<String>> bar = new HashMap<>;
+
+  - id: review.sider.java.lang.constants_naming
+    pattern:
+      regexp: "(?:private|protected|public)?[\\s]+(?:static[\\s]+final|final[\\s]+static)[\\s]+String[\\s]+(EMPTY|empty|BLANK|blank)[\\s]*=[\\s]*\"\""
+    message: |
+      空文字はそれ自体で十分に意味が通るため、そのままの命名で定数化すべきではありません。
+
+      Javaでは同一のリテラルは、同一のメモリ上で保存、参照されるため、パフォーマンス上の定数化メリットはありません。
+      また`""`は、それ自体で空文字であることが明らかなため、`EMPTY`、`BLANK`といった命名をする場合、定数化によるメリットはありません。
+      もし`""`に、なにか特別な意味を持たせるのであれば、別の命名を検討してください。
+
+      - https://stackoverflow.com/questions/4095501/is-stringutils-empty-recommended/39686011
+    glob:
+      - "**/*.java"
+
+  - id: review.sider.java.lang.cookie_domain_too_broad
+    pattern:
+      regexp: "\\.setDomain\\(\"\\.[a-zA-Z0-9]+\"\\)"
+    message: |
+      Cookieに設定されたドメインの範囲が広すぎます
+
+      Cookieを安全に利用するため、設定するドメインの範囲をより限定的にしてください。
+      少なくともネイキッドドメインまでは限定されるように設定するのが良いでしょう。
+
+      - https://rules.sonarsource.com/java/RSPEC-3331
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/net/HttpCookie.html#setDomain-java.lang.String-
+    glob:
+      - "**/*.java"
+    fail:
+      - cookie.setDomain(".com");
+    pass:
+      - cookie.setDomain("your-domain.com");
+      - cookie.setDomain(".your-domain.com");
+      - cookie.setDomain("www.your-domain.com");
+
+  - id: review.sider.java.lang.create-statement
+    pattern: "createStatement"
+    message: |
+      SQLを実行する場合は `Statement` ではなく、`PreparedStatement` を使用してください
+
+      `Statement` クラスによるSQLの発行では、プレースホルダーによるパラメーターのエスケープがサポートされていません。
+      SQLパラメーターのサニタイジングについては、独自実装によるエスケープ等を避け、
+      `PreparedStatement` を使用したプレースホルダーによるエスケープで処理してください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/sql/PreparedStatement.html
+    justification:
+      - パラメーターを必要としない固定化されたSQL(DDL等)を発行する場合
+    glob:
+      - "**/*.java"
+    fail: |
+      Statement statement = connection.createStatement();
+      statement.executeQuery("SELECT * FROM users WHERE name='" + name + "'");
+    pass: |
+      PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE name=?");
+      statement.setString(1, name);
+      statement.executeQuery();
+
+  - id: review.sider.java.lang.date
+    pattern:
+      - token: Date
+      - token: Calendar
+    message:
+      DateやCalendarの積極的な使用は避け、Date and Time APIを使用するようにしてください
+
+      Java8以降では、Date and Time APIが使用可能になっています。
+      `java.time` パッケージに `LocalDateTime`, `LocalDate`, `LocalTime` といった、
+      immutableで機能の豊富なクラス群が提供されているため、これらのAPIを積極的に使用してください。
+
+      - https://jcp.org/en/jsr/detail?id=310
+      - https://docs.oracle.com/javase/8/docs/technotes/guides/datetime/index.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/time/ZonedDateTime.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/time/LocalDateTime.html
+    justification:
+      - Java7以前を使用している場合
+      - SQLの結果セットを受け取る必要がある場合
+    glob:
+      - "**/*.java"
+    fail:
+      - Date dateNow = new Date();
+    pass:
+      - LocalDateTime dateNow = LocalDateTime.now();
+
+  - id: review.sider.java.lang.date-time-formatter
+    pattern:
+      token: "DateFormat"
+    message:
+      イミュータブルにする為に `DateTimeFormatter` の利用を推奨します
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/time/format/DateTimeFormatter.html
+    justification:
+      Java7以前では利用できないので対象外です。
+    glob:
+      - "**/*.java"
+    fail:
+      DateFormat dateTimeFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+    pass:
+      DateTimeFormatter dateTimeFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+
+  - id: review.sider.java.lang.delete-on-exit
+    pattern:
+      token: .deleteOnExit(
+    message: |
+      `deleteOnExit` では、Java仮想マシンが正常に終了されなかった場合、マークされたファイルを削除できません
+
+      何らかの理由により、Java仮想マシンプロセスの終了後にファイルが存在してはならない場合、
+      通常の `Files.delete` メソッドを使用してファイルを削除するか、
+      `Files.createTempFile` を `DELETE_ON_CLOSE` オプションと共に使用して、
+      ファイルクローズと同時に削除されるような一時ファイルを作成する等、
+      要件に応じていくつかの方法を検討してみてください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/io/File.html#deleteOnExit--
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#delete-java.nio.file.Path-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#createTempFile-java.nio.file.Path-java.lang.String-java.lang.String-java.nio.file.attribute.FileAttribute...-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/StandardOpenOption.html#DELETE_ON_CLOSE
+    glob:
+      - "**/*.java"
+    fail:
+      file.deleteOnExit();
+
+  - id: review.sider.java.lang.exit
+    pattern: "System.exit"
+    message: |
+      `System.exit` が実行されるとJava仮想マシンが終了します
+
+      これはJava仮想マシン上で動作しているアプリケーションコンテナ(Tomcat, Jetty, etc..)も、
+      一緒に終了してしまうことを意味しています。
+      アプリケーションコンテナ上で複数のアプリケーションがホスティングされている場合は、
+      これらアプリケーションも同時に動作を停止することになりますので、
+      このような動作を意図しているのかどうか、確認してください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/System.html#exit-int-
+    justification:
+      - コマンドラインアプリケーション等、Java仮想マシンプロセスを単一のアプリケーションで専有する場合
+    fail:
+      - System.exit(0);
+
+  - id: review.sider.java.lang.falsey_condition
+    pattern:
+      token: "if(false)"
+    message: |
+      条件は常に偽となるため不要です
+    glob:
+      - "**/*.java"
+    fail: |
+      if (false) { System.out.println("anything to do"); }
+    pass: |
+      // nothing to do
+
+  - id: review.sider.java.lang.file
+    pattern:
+      - token: new File(
+      - token: .getAbsolutePath()
+      - token: .exists()
+      - token: .canRead()
+      - token: .isDirectory()
+      - token: .delete()
+      - token: .mkdirs()
+      - token: .mkdir()
+      - token: .renameTo(
+    message: |
+      ファイルやパスの表現では、NIO.2 APIを使用してください
+
+      - https://docs.oracle.com/javase/tutorial/essential/io/fileio.html
+      - https://docs.oracle.com/javase/jp/8/docs/technotes/guides/io/index.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Path.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Paths.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/io/File.html
+    justification:
+      - Java6以前を使用している場合
+    glob:
+      - "**/*.java"
+    fail:
+      - new File("dir/file.txt");
+      - file.getAbsolutePath();
+      - file.exists();
+      - file.canRead();
+      - file.mkdirs();
+      - file.mkdir();
+      - file.isDirectory();
+      - file.renameTo(dest);
+      - file.delete();
+    pass:
+      - Paths.get("dir/file.txt");
+      - path.toAbsolutePath().toString();
+      - Files.exists(path);
+      - Files.isReadable(path);
+      - Files.createDirectories(path);
+      - Files.createDirectory(path);
+      - Files.isDirectory(path);
+      - Files.move(path, dest);
+      - Files.deleteIsExists(path);
+
+  - id: review.sider.java.lang.files_read-all-lines
+    pattern:
+      - token: Files.readAllLines
+      - token: Files.readAllBytes
+    message:
+      Files.readAllLines や Files.readAllBytes は一度にファイルの全内容を読み込むため、大量のメモリを消費します
+
+      これらのメソッドは大きなファイルを処理することを前提としていません。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#readAllLines-java.nio.file.Path-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#readAllBytes-java.nio.file.Path-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/nio/file/Files.html#lines-java.nio.file.Path-
+    justification:
+      - ファイルのサイズが大きくないことが確実な場合
+    glob:
+      - "**/*.java"
+    fail:
+      - Files.readAllLines(path);
+      - Files.readAllBytes(path);
+    pass: |
+      // readAllLines の代わりには lines メソッドが使える
+      try (Stream<String> stream = Files.lines(path)) {
+        ...
+      }
+
+  - id: review.sider.java.lang.formats
+    pattern: 
+      - token: new SimpleDateFormat
+      - token: new ChoiceFormat
+      - token: new DecimalFormat
+      - token: new MessageFormat
+    message: |
+      日付フォーマット、数値フォーマット、メッセージフォーマットは同期化しましょう
+  
+      日付フォーマットや数値フォーマットは同期化されていないため、複数のスレッドから同時にアクセスされると意図しない結果になります。
+      ロックなどで同期化するか、ローカル変数として定義してください。
+      
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/DateFormat.html#synchronization
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/NumberFormat.html#synchronization
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/text/MessageFormat.html#synchronization
+    justification:
+      - スレッド領域から脱出しない場合
+      - 自前の同期化を実装している場合
+    glob:
+      - "**/*.java"
+    fail: 
+      - private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+      - private static final NumberFormat numberFormat = new DecimalFormat("#,###");
+      - private static final MessageFormat numberFormat = new MessageFormat("Code {0}, Message {1}");
+
+  - id: review.sider.java.lang.hardcoding_password
     pattern: 
       - token: "static final String PASSWORD"
       - token: "static final String LOGIN_PASSWORD"
@@ -181,6 +422,8 @@ rules:
 
       秘匿すべき情報は直接プログラムに含めるべきではありません。
       環境変数や、システムプロパティ、外部ファイルを通じてプログラム内に読み込めるように変更を検討してください。
+    glob:
+      - "**/*.java"
     fail: |
       private static final String PASSWORD = "_Secret_123_Phrase_";
 
@@ -193,7 +436,72 @@ rules:
           if (password.equals(expectedPassword)) { .. }
       }
 
-  - id: review.sider.java.magic-number_index
+  - id: review.sider.java.lang.iterator
+    pattern:
+      - token: .iterator()
+    message: |
+      `Iterator` ではなく拡張for文を利用しましょう
+    justification:
+      - Java4以前を利用している場合
+    glob:
+      - "**/*.java"
+    fail: |
+      Iterator iterator = list.iterator();
+      while (iterator.hasNext()) {
+        ...
+      }
+    pass: |
+      for (String x : list) {
+        ...
+      }
+
+  - id: review.sider.java.lang.java-beans_naming
+    pattern:
+      - regexp: "private[\\s]+boolean[\\s]+is[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
+      - regexp: "private[\\s]+[A-Za-z0-9_$]+[\\s]+get[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
+      - regexp: "private[\\s]+[A-Za-z0-9_$]+[\\s]+set[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
+    message: |
+      `boolean` フィールドの `is` プレフィックスや、その他フィールドの `get`, `set` プレフィックスは避けてください
+
+      Java Beans のプロパティ仕様により、アクセス用メソッドの名前に、
+      `is`, `get`, `set` プレフィックスが予約されています。
+      そのため、フィールドの命名にこれらを使用すべきではありません。
+
+      https://docs.oracle.com/javase/jp/8/docs/api/java/beans/PropertyDescriptor.html#PropertyDescriptor-java.lang.String-java.lang.Class-
+    glob:
+      - "**/*.java"
+    fail:
+      - private boolean isEnabled;
+      - private String getName;
+    pass:
+      - private boolean enabled;
+      - private String name;
+      - private boolean isEnabled() { .. }
+      - private String getName() { .. }
+
+  - id: review.sider.java.lang.key-set
+    pattern:
+      - token: keySet()
+    message: |
+      `Map` に含まれるキーと値の組を走査するには `entrySet()` を使うことができます
+    justification:
+      - Mapを走査するのではなく、キーが欲しい場合
+    glob:
+      - "**/*.java"
+    fail:
+      - |
+        for (String key : map.keySet()) {
+          Object value = map.get(key);
+          // do something...
+        }
+    pass:
+      - |
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+          Object value = entry.getValue();
+          // do something...
+        }
+
+  - id: review.sider.java.lang.magic-number_index
     pattern: 
       - regexp: "\\[[0-9]+\\]"
       - regexp: "get\\([0-9]+\\)"
@@ -202,6 +510,8 @@ rules:
 
       配列やリストのインデックスに数値を直接指定している場合、そのインデックスには何か意味のあることが多いです。
       インデックスに与えられた意味に応じて定数化を検討してください。
+    glob:
+      - "**/*.java"
     fail:
       - |
         public static void main(String[] args) {
@@ -219,130 +529,43 @@ rules:
         }
       - String name = list.get(INDEX_NAME)
 
-
-  - id: review.sider.java.String_index-of_argument
-    pattern: 
-      - regexp: "indexOf\\(\".\"\\)"
-      - regexp: "lastIndexOf\\(\".\"\\)"
-    message: |
-      `indexOf` や `lastIndexOf` で1文字だけを検索する場合、`char` を渡したほうが検索時のパフォーマンスが向上します
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-int-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-java.lang.String-
-    fail: |
-      uri.indexOf("?");
-    pass: |
-      uri.indexOf('?');
-
-  - id: review.sider.java.String_index-of_return
-    pattern: 
-      - regexp: "indexOf\\(\".+\"\\) > 0"
-      - regexp: "indexOf\\('.'\\) > 0"
-    message: |
-      `indexOf` の戻り値は 0 開始です
-
-      `indexOf` で検索対象が先頭で見つかった場合に返される値は `0`、
-      検索対象が文字列中に見つからなかった場合に返される値は `-1` です。
-
-      特定の文字列が含まれていることを確認したい場合、`> 0` ではなく、`>= 0` を使用して検査するか、
-      `contains` メソッドを使用してください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-int-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-java.lang.String-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#contains-java.lang.CharSequence-
-    fail:
-      - if (uri.indexOf("keyword") > 0) { .. }
-      - if (uri.indexOf('?') > 0) { .. }
-    pass:
-      - if (uri.indexOf("keyword") >= 0) { .. }
-      - if (uri.indexOf('?') >= 0) { .. }
-      - if (uri.contains("keyword")) { .. }
-
-  - id: review.sider.java.junit.Assert_arguments-order
-    pattern: 
-      - regexp: "Assert\\.assertEquals\\(.+, \".+\"\\);"
-    message: |
-      引数の順序が逆です
-      
-      `Assert.assertEquals` は第一引数に期待値、第二引数に実績値を渡すAPIです。
-
-      - http://junit.sourceforge.net/javadoc/org/junit/Assert.html#assertEquals(java.lang.Object,%20java.lang.Object)
-    fail: |
-      Assert.assertEquals(actualName, "alice");
-    pass: |
-      Assert.assertEquals("alice", actualName);
-  - id: review.sider.java.javabeans_naming
+  - id: review.sider.java.lang.nop_bit_operator
     pattern:
-      - regexp: "private[\\s]+boolean[\\s]+is[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
-      - regexp: "private[\\s]+[A-Za-z0-9_$]+[\\s]+get[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
-      - regexp: "private[\\s]+[A-Za-z0-9_$]+[\\s]+set[A-Z][A-Za-z0-9_$]*[\\s]*[^\\(]*;"
+      - " & -1"
+      - " | 0"
+      - " ^ 0"
+      - "-1 & "
+      - "0 | "
+      - "0 ^ "
     message: |
-      `boolean` フィールドの `is` プレフィックスや、その他フィールドの `get`, `set` プレフィックスは避けてください
-
-      Java Beans のプロパティ仕様により、アクセス用メソッドの名前に、
-      `is`, `get`, `set` プレフィックスが予約されています。
-      そのため、フィールドの命名にこれらを使用すべきではありません。
-
-      https://docs.oracle.com/javase/jp/8/docs/api/java/beans/PropertyDescriptor.html#PropertyDescriptor-java.lang.String-java.lang.Class-
-    fail:
-      - private boolean isEnabled;
-      - private String getName;
-    pass:
-      - private boolean enabled;
-      - private String name;
-      - private boolean isEnabled() { .. }
-      - private String getName() { .. }
-
-  - id: review.sider.java.exit
-    pattern: "System.exit"
-    message: |
-      `System.exit` が実行されるとJava仮想マシンが終了します
-
-      これはJava仮想マシン上で動作しているアプリケーションコンテナ(Tomcat, Jetty, etc..)も、
-      一緒に終了してしまうことを意味しています。
-      アプリケーションコンテナ上で複数のアプリケーションがホスティングされている場合は、
-      これらアプリケーションも同時に動作を停止することになりますので、
-      このような動作を意図しているのかどうか、確認してください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/System.html#exit-int-
-    justification:
-      - コマンドラインアプリケーション等、Java仮想マシンプロセスを単一のアプリケーションで専有する場合
-    fail:
-      - System.exit(0);
-    
-  - id: review.sider.java.run-finalizers-on-exit
-    pattern:
-      - "System.runFinalizersOnExit"
-      - "runFinalizersOnExit(true)"
-    message: |
-      `runFinalizersOnExit` を使用してはなりません
-
-      `runFinalizersOnExit` を使用すると、ガベージコレクタがオブジェクトの到達不能を判断してから、
-      そのメモリ領域を回収するまでの間に、オブジェクトのファイナライザメソッドを呼び出すようになります。
-      ファイナライザメソッドを実行することで、ストリーム、ファイル、ネットワーク接続といった、
-      ガベージコレクタの通常動作では自動的に解放されないかもしれないリソースを解放することができるようになります。
+      元の値と同じ結果の得られる、不必要なビット演算です
       
-      ただしファイナライザメソッドの実行には、いくつかの致命的な問題があります。
-
-      - 実行のタイミングがJVMに依存することになり、ファイルのクローズ等が際限なく遅延する場合がある
-      - JVMは、到達不能なオブジェクトのファイナライザを実行せずに終了する場合がある
-      - 実行に時間のかかるファイナライザは、実行キューの他のファイナライザの実行を遅延させる場合がある
-      - ファイナライザの実行中に発生する例外は無視される
-      - メモリリークを引き起こすコーディング上のミスに起因して、ファイナライズが発生しない場合がある
-      - プログラマは `finalize()`メソッドの中で、オブジェクトの参照を意図せず復活させてしまう場合がある
-      - 他
-
-      このように、プログラマによるハンドリングが難しく、
-      意図せず不具合を盛り込みやすくしてしまうため、`runFinalizersOnExit` は使わないでください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/System.html#runFinalizersOnExit-boolean-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/Runtime.html#runFinalizersOnExit-boolean-
-      - http://findbugs.sourceforge.net/bugDescriptions_ja.html#DM_RUN_FINALIZERS_ON_EXIT
-      - https://www.jpcert.or.jp/java-rules/met12-j.html
+      - https://rules.sonarsource.com/java/RSPEC-2437
+    glob:
+      - "**/*.java"
     fail:
-      - System.runFinalizersOnExit(true);
+      - value & -1
+      - value | 0
+      - value ^ 0
+      - -1 & 123
+      - 0 | 123
+      - 0 ^ 123
 
-  - id: review.sider.java.print
+  - id: review.sider.java.lang.package_naming
+    pattern:
+      regexp: "package [a-z0-9\\.]*[A-Z_]+[a-z0-9\\.]*;"
+    message: |
+      パッケージ名での英大文字やアンダースコアの使用は推奨されません。
+      
+      - https://google.github.io/styleguide/javaguide.html#s5.2.1-package-names
+    glob:
+      - "**/*.java"
+    fail: |
+      package review.sider.goodcheck_example;
+    pass: |
+      package review.sider.goodcheck.example;
+
+  - id: review.sider.java.lang.print
     pattern:
       - "System.out.print"
       - "System.err.print"
@@ -358,6 +581,8 @@ rules:
       - https://pmd.github.io/pmd/pmd_rules_java_bestpractices.html#systemprintln
     justification:
       - コマンドラインアプリケーション等、標準出力に文字列を書き出すことを目的としている場合
+    glob:
+      - "**/*.java"
     fail:
       - System.out.println("debug");
       - System.out.printf("debug %s", s);
@@ -368,8 +593,8 @@ rules:
       - logger.debug("debug {}", s);
       - logger.error("error");
       - logger.error("error {}", s);
-    
-  - id: review.sider.java.print-stacktrace
+
+  - id: review.sider.java.lang.print-stacktrace
     pattern: "printStackTrace"
     message: |
       補足した例外を適切に処理してください
@@ -379,76 +604,35 @@ rules:
       ロギングフレームワークによりログを出力する等、適切に処理してください。
 
       - https://pmd.github.io/pmd/pmd_rules_java_bestpractices.html#avoidprintstacktrace
+    glob:
+      - "**/*.java"
     fail:
       - e.printStackTrace();
     pass:
       - logger.error("handle exception", e);
 
-  - id: review.sider.java.create-statement
-    pattern: "createStatement"
-    message: |
-      SQLを実行する場合は `Statement` ではなく、`PreparedStatement` を使用してください
-
-      `Statement` クラスによるSQLの発行では、プレースホルダーによるパラメーターのエスケープがサポートされていません。
-      SQLパラメーターのサニタイジングについては、独自実装によるエスケープ等を避け、
-      `PreparedStatement` を使用したプレースホルダーによるエスケープで処理してください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/sql/PreparedStatement.html
-    justification:
-      - パラメーターを必要としない固定化されたSQL(DDL等)を発行する場合
-    fail: |
-      Statement statement = connection.createStatement();
-      statement.executeQuery("SELECT * FROM users WHERE name='" + name + "'");
-    pass: |
-      PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE name=?");
-      statement.setString(1, name);
-      statement.executeQuery();
-
-  - id: review.sider.java.statement-param-index
+  - id: review.sider.java.lang.random
     pattern:
-      - ".setArray(0,"
-      - ".setAsciiStream(0,"
-      - ".setBigDecimal(0,"
-      - ".setBinaryStream(0,"
-      - ".setBlob(0,"
-      - ".setBoolean(0,"
-      - ".setByte(0,"
-      - ".setBytes(0,"
-      - ".setCharacterStream(0,"
-      - ".setClob(0,"
-      - ".setDate(0,"
-      - ".setDouble(0,"
-      - ".setFloat(0,"
-      - ".setInt(0,"
-      - ".setLong(0,"
-      - ".setNCharacterStream(0,"
-      - ".setNClob(0,"
-      - ".setNString(0,"
-      - ".setNull(0,"
-      - ".setObject(0,"
-      - ".setRef(0,"
-      - ".setRowId(0,"
-      - ".setShort(0,"
-      - ".setSQLXML(0,"
-      - ".setString(0,"
-      - ".setTime(0,"
-      - ".setTimestamp(0,"
-      - ".setUnicodeStream(0,"
-      - ".setURL(0,"
-
+      - "new Random("
+      - "Math.random"
     message: |
-      `PreparedStatement` にパラメータを指定する場合のインデックスの始まりは `1` です
+      より強度の高い乱数が必要な場合、`SecureRandom` を使用してください
 
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/sql/PreparedStatement.html#setString-int-java.lang.String-
-      - https://rules.sonarsource.com/java/RSPEC-2695
+      ユーザーIDや、初期パスワード、トークン等、生成された乱数に推測困難であることが求められる場合、`Random` を使用すべきではありません。
+      `Random` の使用は、プログラムのリトライ間隔時間の調整等、乱数が予測可能でも支障がない場合に限定してください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/Random.html
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/security/SecureRandom.html
+      - https://find-sec-bugs.github.io/bugs.htm#PREDICTABLE_RANDOM
+    glob:
+      - "**/*.java"
     fail:
-      - statement.setString(0, "alice");
-      - statement.setInt(0, 100);
+      - "Random random = new Random();"
+      - "double r = Math.random();"
     pass:
-      - statement.setString(1, "alice");
-      - statement.setInt(1, 100);
+      - "Random random = new SecureRandom();"
 
-  - id: review.sider.java.result-set-index
+  - id: review.sider.java.lang.result-set_index
     pattern:
       - ".getArray(0"
       - ".getAsciiStream(0"
@@ -486,6 +670,8 @@ rules:
 
       - https://docs.oracle.com/javase/jp/8/docs/api/java/sql/ResultSet.html#getString-int-
       - https://rules.sonarsource.com/java/RSPEC-2695
+    glob:
+      - "**/*.java"
     fail: |
       - statement.getString(0);
       - statement.getInt(0);
@@ -495,7 +681,214 @@ rules:
       - statement.getInt(1);
       - statement.getInt("stock");
 
-  - id: review.sider.java.unchecked-io-exception
+  - id: review.sider.java.lang.return_null
+    pattern:
+      token: return null
+    message: |
+      Optionalを使うことでnullを代用できます
+
+      `Optional` を使うことで、 `null` の場合を考慮せずにメソッドを呼び出すような誤りが発生しないように、コンパイラによって検査できます。
+      また `Optional` を使う場合には、安易に `get()` するのではなく、 `flatMap` や `ifPresent` などを活用しましょう。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/Optional.html
+    justification:
+      - Java7以前を使用している場合
+    glob:
+      - "**/*.java"
+    fail:
+      return null;
+    pass:
+      return Optional.empty();
+
+  - id: review.sider.java.lang.run-finalizers-on-exit
+    pattern:
+      - "System.runFinalizersOnExit"
+      - "runFinalizersOnExit(true)"
+    message: |
+      `runFinalizersOnExit` を使用してはなりません
+
+      `runFinalizersOnExit` を使用すると、ガベージコレクタがオブジェクトの到達不能を判断してから、
+      そのメモリ領域を回収するまでの間に、オブジェクトのファイナライザメソッドを呼び出すようになります。
+      ファイナライザメソッドを実行することで、ストリーム、ファイル、ネットワーク接続といった、
+      ガベージコレクタの通常動作では自動的に解放されないかもしれないリソースを解放することができるようになります。
+      
+      ただしファイナライザメソッドの実行には、いくつかの致命的な問題があります。
+
+      - 実行のタイミングがJVMに依存することになり、ファイルのクローズ等が際限なく遅延する場合がある
+      - JVMは、到達不能なオブジェクトのファイナライザを実行せずに終了する場合がある
+      - 実行に時間のかかるファイナライザは、実行キューの他のファイナライザの実行を遅延させる場合がある
+      - ファイナライザの実行中に発生する例外は無視される
+      - メモリリークを引き起こすコーディング上のミスに起因して、ファイナライズが発生しない場合がある
+      - プログラマは `finalize()`メソッドの中で、オブジェクトの参照を意図せず復活させてしまう場合がある
+      - 他
+
+      このように、プログラマによるハンドリングが難しく、
+      意図せず不具合を盛り込みやすくしてしまうため、`runFinalizersOnExit` は使わないでください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/System.html#runFinalizersOnExit-boolean-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/Runtime.html#runFinalizersOnExit-boolean-
+      - http://findbugs.sourceforge.net/bugDescriptions_ja.html#DM_RUN_FINALIZERS_ON_EXIT
+      - https://www.jpcert.or.jp/java-rules/met12-j.html
+    glob:
+      - "**/*.java"
+    fail:
+      - System.runFinalizersOnExit(true);
+
+  - id: review.sider.java.lang.runtime_exec
+    pattern:
+      - regexp: "\\.exec\\(.+\\+.+"
+      - regexp: "\\.exec\\([a-zA-Z0-9_$]+"
+    message: |
+      `Runtime.exec` の引数では、値の組み立てや、変数の使用を避けてください
+
+      OSコマンドインジェクションを引き起こす可能性があるため、`Runtime.exec` の使用は十分に注意してください。
+      変数や、値の組み立てにより意図しないコマンドを実行される可能性があるため、
+      引数には文字列リテラル等を渡して、可能な限りプログラマが意図したコマンドのみが実行されるようにしてください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/Runtime.html#exec-java.lang.String-
+      - https://find-sec-bugs.github.io/bugs.htm#COMMAND_INJECTION
+    glob:
+      - "**/*.java"
+    fail:
+      - |
+        Runtime r = Runtime.getRuntime();
+        r.exec("/bin/sh -c some_tool " + input);
+      - |
+        Runtime r = Runtime.getRuntime();
+        r.exec(command);
+    pass:
+      - |
+        Runtime r = Runtime.getRuntime();
+        r.exec("/bin/sh -c some_tool x y z");
+
+  - id: review.sider.java.lang.statement_param_index
+    pattern:
+      - ".setArray(0,"
+      - ".setAsciiStream(0,"
+      - ".setBigDecimal(0,"
+      - ".setBinaryStream(0,"
+      - ".setBlob(0,"
+      - ".setBoolean(0,"
+      - ".setByte(0,"
+      - ".setBytes(0,"
+      - ".setCharacterStream(0,"
+      - ".setClob(0,"
+      - ".setDate(0,"
+      - ".setDouble(0,"
+      - ".setFloat(0,"
+      - ".setInt(0,"
+      - ".setLong(0,"
+      - ".setNCharacterStream(0,"
+      - ".setNClob(0,"
+      - ".setNString(0,"
+      - ".setNull(0,"
+      - ".setObject(0,"
+      - ".setRef(0,"
+      - ".setRowId(0,"
+      - ".setShort(0,"
+      - ".setSQLXML(0,"
+      - ".setString(0,"
+      - ".setTime(0,"
+      - ".setTimestamp(0,"
+      - ".setUnicodeStream(0,"
+      - ".setURL(0,"
+
+    message: |
+      `PreparedStatement` にパラメータを指定する場合のインデックスの始まりは `1` です
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/sql/PreparedStatement.html#setString-int-java.lang.String-
+      - https://rules.sonarsource.com/java/RSPEC-2695
+    glob:
+      - "**/*.java"
+    fail:
+      - statement.setString(0, "alice");
+      - statement.setInt(0, 100);
+    pass:
+      - statement.setString(1, "alice");
+      - statement.setInt(1, 100);
+
+  - id: review.sider.java.lang.stream_of
+    pattern:
+      regexp: "Arrays.asList\\(.+\\)\\.stream"
+    message: |
+      リストからストリーム処理を記述する場合 `Stream.of` が使用できます
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/stream/Stream.html#of-T...-
+    glob:
+      - "**/*.java"
+    fail: |
+      Arrays.asList(1, 2, 3).stream().filter((i) -> i % 2 == 0);
+    pass: |
+      Stream.of(1, 2, 3).filter((i) -> i % 2 == 0);
+
+  - id: review.sider.java.lang.string_equals
+    pattern:
+      - token: == "
+      - regexp: .* == ".*"
+    message:
+      Stringはequalsで比較してください
+    glob:
+      - "**/*.java"
+    fail:
+      foo == "bar"
+    pass:
+      foo.equals("bar")
+
+  - id: review.sider.java.lang.string_index-of_argument
+    pattern: 
+      - regexp: "indexOf\\(\".\"\\)"
+      - regexp: "lastIndexOf\\(\".\"\\)"
+    message: |
+      `indexOf` や `lastIndexOf` で1文字だけを検索する場合、`char` を渡したほうが検索時のパフォーマンスが向上します
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-int-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-java.lang.String-
+    glob:
+      - "**/*.java"
+    fail: |
+      uri.indexOf("?");
+    pass: |
+      uri.indexOf('?');
+
+  - id: review.sider.java.lang.string_index-of_return
+    pattern: 
+      - regexp: "indexOf\\(\".+\"\\) > 0"
+      - regexp: "indexOf\\('.'\\) > 0"
+    message: |
+      `indexOf` の戻り値は 0 開始です
+
+      `indexOf` で検索対象が先頭で見つかった場合に返される値は `0`、
+      検索対象が文字列中に見つからなかった場合に返される値は `-1` です。
+
+      特定の文字列が含まれていることを確認したい場合、`> 0` ではなく、`>= 0` を使用して検査するか、
+      `contains` メソッドを使用してください。
+
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-int-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#indexOf-java.lang.String-
+      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/String.html#contains-java.lang.CharSequence-
+    glob:
+      - "**/*.java"
+    fail:
+      - if (uri.indexOf("keyword") > 0) { .. }
+      - if (uri.indexOf('?') > 0) { .. }
+    pass:
+      - if (uri.indexOf("keyword") >= 0) { .. }
+      - if (uri.indexOf('?') >= 0) { .. }
+      - if (uri.contains("keyword")) { .. }
+
+  - id: review.sider.java.lang.truthy_condition
+    pattern:
+      token: "if(true)"
+    message: |
+      条件は常に真となるため不要です
+    glob:
+      - "**/*.java"
+    fail: |
+      if (true) { System.out.println("anything to do"); }
+    pass: |
+      System.out.println("anything to do");
+
+  - id: review.sider.java.lang.unchecked-io-exception
     pattern: "throws IOException"
     message: |
       入出力例外の報告には非検査例外の `UncheckedIOException` が使用できます
@@ -509,6 +902,8 @@ rules:
     justification:
       - Java7以前を使用している場合
       - ラムダ式内で使用しない場合
+    glob:
+      - "**/*.java"
     fail: |
       class CheckedFileComponent {
           FileInputStream openFileInputStream(String file) throws IOException {
@@ -559,37 +954,7 @@ rules:
                   .forEach(component::closeFileInputStream);
       }
 
-  - id: review.sider.java.stream-of
-    pattern:
-      regexp: "Arrays.asList\\(.+\\)\\.stream"
-    message: |
-      リストからストリーム処理を記述する場合 `Stream.of` が使用できます
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/stream/Stream.html#of-T...-
-    fail: |
-      Arrays.asList(1, 2, 3).stream().filter((i) -> i % 2 == 0);
-    pass: |
-      Stream.of(1, 2, 3).filter((i) -> i % 2 == 0);
-
-  - id: review.sider.java.cookie-domain_too-broad
-    pattern:
-      regexp: "\\.setDomain\\(\"\\.[a-zA-Z0-9]+\"\\)"
-    message: |
-      Cookieに設定されたドメインの範囲が広すぎます
-
-      Cookieを安全に利用するため、設定するドメインの範囲をより限定的にしてください。
-      少なくともネイキッドドメインまでは限定されるように設定するのが良いでしょう。
-
-      - https://rules.sonarsource.com/java/RSPEC-3331
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/net/HttpCookie.html#setDomain-java.lang.String-
-    fail:
-      - cookie.setDomain(".com");
-    pass:
-      - cookie.setDomain("your-domain.com");
-      - cookie.setDomain(".your-domain.com");
-      - cookie.setDomain("www.your-domain.com");
-
-  - id: review.sider.java.weak-crypt-des
+  - id: review.sider.java.lang.weak_crypt_des
     pattern: Cipher.getInstance("DES
     message: |
       強度の低い暗号化アルゴリズムの使用を避け、より強度の高い暗号化アルゴリズムを使用してください
@@ -601,13 +966,15 @@ rules:
       - https://docs.oracle.com/javase/jp/8/docs/technotes/guides/security/StandardNames.html#Cipher
       - https://find-sec-bugs.github.io/bugs.htm#DES_USAGE
       - https://find-sec-bugs.github.io/bugs.htm#TDES_USAGE
+    glob:
+      - "**/*.java"
     fail:
       - Cipher.getInstance("DES/ECB/PKCS5Padding");
       - Cipher.getInstance("DESede/ECB/PKCS5Padding");
     pass:
       - Cipher.getInstance("AES/GCM/NoPadding");
 
-  - id: review.sider.java.weak-crypt-rsa
+  - id: review.sider.java.lang.weak_crypt_rsa
     pattern: 
       - Cipher.getInstance("RSA/NONE/NoPadding
       - Cipher.getInstance("RSA"
@@ -621,50 +988,15 @@ rules:
       - https://docs.oracle.com/javase/jp/8/docs/api/javax/crypto/Cipher.html
       - https://docs.oracle.com/javase/jp/8/docs/technotes/guides/security/StandardNames.html#Cipher
       - https://find-sec-bugs.github.io/bugs.htm#RSA_NO_PADDING
+    glob:
+      - "**/*.java"
     fail:
       - Cipher.getInstance("RSA/NONE/NoPadding");
       - Cipher.getInstance("RSA");
     pass:
       - Cipher.getInstance("RSA/ECB/PKCS1Padding");
-    
-  - id: review.sider.java.allow-origin
-    pattern: 
-      - addHeader("Access-Control-Allow-Origin", "*")
-    message: |
-      クロスドメインに対するリソース共有許可範囲が広すぎます
 
-      `Access-Control-Allow-Origin` に `*` をせっていすると、
-      サービスが保有しているリソースへのアクセスを、不特定多数に許可することになります。
-
-      `Access-Control-Allow-Origin` を設定する場合、自身で管理しているドメインや、
-      事前にリソースの使用許可を確認しているドメイン等、信頼されているドメインに限定してください。
-
-      - https://javaee.github.io/javaee-spec/javadocs/javax/servlet/http/HttpServletResponse.html#addHeader-java.lang.String-java.lang.String-
-      - https://find-sec-bugs.github.io/bugs.htm#PERMISSIVE_CORS
-    fail: |
-      response.addHeader("Access-Control-Allow-Origin", "*");
-    pass: |
-      response.addHeader("Access-Control-Allow-Origin", "*.your-domain.com");
-  - id: review.sider.java.random
-    pattern:
-      - "new Random("
-      - "Math.random"
-    message: |
-      より強度の高い乱数が必要な場合、`SecureRandom` を使用してください
-
-      ユーザーIDや、初期パスワード、トークン等、生成された乱数に推測困難であることが求められる場合、`Random` を使用すべきではありません。
-      `Random` の使用は、プログラムのリトライ間隔時間の調整等、乱数が予測可能でも支障がない場合に限定してください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/util/Random.html
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/security/SecureRandom.html
-      - https://find-sec-bugs.github.io/bugs.htm#PREDICTABLE_RANDOM
-    fail:
-      - "Random random = new Random();"
-      - "double r = Math.random();"
-    pass:
-      - "Random random = new SecureRandom();"
-
-  - id: review.sider.java.weak-hash
+  - id: review.sider.java.lang.weak_hash
     pattern:
       - MessageDigest.getInstance("MD2"
       - MessageDigest.getInstance("MD5"
@@ -681,226 +1013,37 @@ rules:
       - https://docs.oracle.com/javase/jp/8/docs/api/java/security/MessageDigest.html
       - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_MD5
       - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_SHA1
+    glob:
+      - "**/*.java"
     fail:
       - MessageDigest.getInstance("MD5");
       - MessageDigest.getInstance("SHA-1");
     pass:
       - MessageDigest.getInstance("SHA-256");
 
-  - id: review.sider.java.apache-commons.weak-hash
+  - id: review.sider.java.lang.wrapper_classes
     pattern:
-      - DigestUtils.getMd2Digest()
-      - DigestUtils.getMd5Digest()
-      - DigestUtils.getShaDigest()
-      - DigestUtils.getSha1Digest()
-      - DigestUtils.md2
-      - DigestUtils.md5
-      - DigestUtils.sha(
-      - DigestUtils.shaHex(
-      - DigestUtils.sha1
-      - new DigestUtils(MD2)
-      - new DigestUtils(MD5)
-      - new DigestUtils(SHA_1)
-      - new DigestUtils(MessageDigestAlgorithms.MD2)
-      - new DigestUtils(MessageDigestAlgorithms.MD5)
-      - new DigestUtils(MessageDigestAlgorithms.SHA_1)
+      - token: Boolean
+      - token: Byte
+      - token: Short
+      - token: Character
+      - token: Integer
+      - token: Long
+      - token: Float
+      - token: Double
     message: |
-      脆弱なハッシュアルゴリズムの使用を避け、より強度の高いハッシュアルゴリズムを使用してください
+      本当にプリミティブのラッパークラスを使う必要がありますか？
 
-      MD2, MD5, SHA-1は、脆弱なハッシュアルゴリズムです。
-      意図的な衝突攻撃が確立されているため、これら脆弱なハッシュアルゴリズムの使用は避けてください。
-      最低でもSHA-256か、それ以上の強度を持つハッシュアルゴリズムを選択してください。
-
-      - https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/digest/DigestUtils.html
-      - https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/digest/MessageDigestAlgorithms.html
-      - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_MD5
-      - https://find-sec-bugs.github.io/bugs.htm#WEAK_MESSAGE_DIGEST_SHA1
+      `Boolean` や `Integer` などの、ラッパークラスを使う必要があるか考えてください。
+      ラッパークラスを使うと、 `null` の可能性を考慮する必要があり、またboxingのためにパフォーマンス上のペナルティがあります。
     justification:
-      - Apache Commons Codecを使用していない場合
+      - Genericsのために必要な場合
+      - アプリケーションの要請としてnullが必要な場合
+    glob:
+      - "**/*.java"
     fail:
-      - DigestUtils.shaHex("clear text");
-      - DigestUtils.getMd5Digest().digestAsHex("clear text");
-      - new DigestUtils(MessageDigestAlgorithms.SHA_1).digestAsHex("clear text")
+      - Boolean visible = true;
+      - Integer upperLimit = 3;
     pass:
-      - DigestUtils.sha256Hex("clear text");
-      - DigestUtils.getSha512Digest().digestAsHex("clear text");
-      - new DigestUtils(MessageDigestAlgorithms.SHA_384).digestAsHex("clear text")
-
-  - id: review.sider.java.runtime-exec
-    pattern:
-      - regexp: "\\.exec\\(.+\\+.+"
-      - regexp: "\\.exec\\([a-zA-Z0-9_$]+"
-    message: |
-      `Runtime.exec` の引数では、値の組み立てや、変数の使用を避けてください
-
-      OSコマンドインジェクションを引き起こす可能性があるため、`Runtime.exec` の使用は十分に注意してください。
-      変数や、値の組み立てにより意図しないコマンドを実行される可能性があるため、
-      引数には文字列リテラル等を渡して、可能な限りプログラマが意図したコマンドのみが実行されるようにしてください。
-
-      - https://docs.oracle.com/javase/jp/8/docs/api/java/lang/Runtime.html#exec-java.lang.String-
-      - https://find-sec-bugs.github.io/bugs.htm#COMMAND_INJECTION
-    fail:
-      - |
-        Runtime r = Runtime.getRuntime();
-        r.exec("/bin/sh -c some_tool " + input);
-      - |
-        Runtime r = Runtime.getRuntime();
-        r.exec(command);
-    pass:
-      - |
-        Runtime r = Runtime.getRuntime();
-        r.exec("/bin/sh -c some_tool x y z");
-
-  - id: review.sider.java.spring.Autowired-annotation
-    pattern: "@Autowired"
-    message: |
-      コンストラクタが単一の場合には `@Autowired` アノテーションは不要です
-
-      コンストラクタが単一である場合、暗黙的にコンストラクタインジェクションが行われるため、 `@Autowired` の明示的な指定は冗長な記述となります。
-      また、インジェクション方法は、コンストラクタインジェクションが推奨されます。
-
-      - https://spring.io/blog/2016/03/04/core-container-refinements-in-spring-framework-4-3
-    glob:
-      - "**/*.java"
-    justification:
-      - Spring 4.3未満を使用している場合
-      - 暗黙のコンストラクタインジェクションが利用できない場合
-
-  - id: review.sider.java.spring.ResponseBody-annotation
-    pattern: "@ResponseBody"
-    message: |
-      `@RestController` アノテーションが利用できます
-
-      `@ReponseBody` と `@RestController` の組み合わせは、 `@RestController` アノテーションにまとめることができます。  
-
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/RestController.html
-    glob:
-      - "**/*.java"
-    justification:
-      - Spring 4.0未満を使用している場合
-    fail: |
-      @Controller
-      @ResponseBody
-      class UsersController { .. }
-    pass: |
-      @RestController
-      class UsersController { .. }
-
-  - id: review.sider.java.spring.RequestMapping-annotation
-    pattern: "@RequestMapping"
-    message: |
-      `@RequestMapping` アノテーションにmethodを指定する場合には `@GetMapping` などに変換できるかもしれません
-
-      例えば `@RequestMapping(method = RequestMethod.GET)` の意味を持つアノテーションとして、 `@GetMapping` を利用できます。
-      同様に
-
-      - `@PostMapping`
-      - `@PutMapping`
-      - `@DeleteMapping`
-      - `@PatchMapping`
-
-      が提供されています。
-
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/GetMapping.html
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PostMapping.html
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PutMapping.html
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/DeleteMapping.html
-      - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PatchMapping.html
-    justification:
-      - methodの指定がない場合
-      - Spring 4.3未満を使用している場合
-    glob:
-      - "**/*.java"
-    fail: 
-      - "@RequestMapping(method = RequestMethod.GET) public String index() { ... }"
-    pass:
-      - "@GetMapping public String index() { ... }"
-
-  - id: review.sider.java.spring.Repository-annotation
-    pattern: "@Repository"
-    message: |
-      `@Repository` アノテーションを付与する場合には、「リポジトリ」になっているか確認しましょう
-
-      ここで言うリポジトリとは、Domain-Driven Design (Evans, 2003)によって定義された「オブジェクトの保存・取得・検索をカプセル化した、コレクションをエミュレートする機構」です。
-      Java EEのData Access Objectのようなパターンによって定義されたクラスに、このアノテーションを与えることもできますが、慎重に検討してください。
-
-      リポジトリパターンでは、DAOとは違い、永続化ストアの具体的な実装に依存してはいけません。
-      DAOをリポジトリとして扱う場合には、それが適切かどうかアプリケーションの要件と合わせて慎重に検討してください。
-
-      - https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/stereotype/Repository.html
-      - https://martinfowler.com/eaaCatalog/repository.html
-    glob:
-      - "**/*.java"
-    fail: |
-      @Repository public class JdbcUserRepository { .. }
-
-  - id: review.sider.java.spring.Component-annotation
-    pattern: "@Component"
-    message: |
-      `@Component` アノテーションを付与する場合には、より意味を限定した他のアノテーションが使えないか確認しましょう。
-
-      Spring Frameworkには、ドメイン駆動開発内で言及されているレイヤードアーキテクチャでの各コンポーネントに対応する、
-      ステレオタイプアノテーションがいくつか用意されており、コンポーネントの役割に応じてこれらを使い分けることにより、
-      クラスを理解する際の助けとなります。
-
-      代表的なステレオタイプアノテーションには、以下のようなものがあります。
-
-      - `@Controller`
-      - `@Service`
-      - `@Repository`
-
-      - https://docs.spring.io/spring-framework/docs/current/spring-framework-reference/core.html#beans-stereotype-annotations
-    glob:
-      - "**/*.java"
-    fail: |
-      @Component public class UserService { .. }
-    pass: |
-      @Service public class UserService { .. }
-
-  - id: review.sider.java.spring.csrf-disable
-    pattern:
-      token: "csrf().disable()"
-    message: |
-      CSRF保護が無効化されています
-
-      一般的なフォームベースの入力が存在するようなWebアプリケーションにおいては、
-      この機能を有効化して、CSRFからサイトを保護してください。
-
-      - https://docs.spring.io/spring-security/site/docs/current/reference/html5/#csrf
-      - https://find-sec-bugs.github.io/bugs.htm#SPRING_CSRF_PROTECTION_DISABLED
-    justification:
-      - Spring Securityを使用していない場合
-      - 同一生成元ポリシー等を担保にリクエスト元を保証できる場合
-    glob:
-      - "**/*.java"
-    fail: |
-      http.csrf().disable();
-
-  - id: review.sider.java.junit.Ignore-annotation
-    pattern:
-      token: "@Ignore"
-    message: |
-      `@Ignore` したままのテストが残っていないかどうか確認してください。
-      テストを恒久的に無効化したい場合、テストの削除も検討してみてください。
-    justification:
-      - 意図して一時的にテストを無効化する場合
-    glob:
-      - "**/*.java"
-    fail: |
-      @Ignore
-      public void test() { .. }
-    pass: |
-      public void test() { .. }
-
-  - id: review.sider.java.junit.Disabled-annotation
-    pattern:
-      token: "import org.junit.jupiter.api.Disabled"
-    message: |
-      `@Disabled` したままのテストが残っていないかどうか確認してください。
-      テストを恒久的に無効化したい場合、テストの削除も検討してみてください。
-    justification:
-      - 意図して一時的にテストを無効化する場合
-    glob:
-      - "**/*.java"
-    fail: |
-      import org.junit.jupiter.api.Disabled;
+      - boolean visible = true;
+      - int upperLimit = 3;

@@ -1,0 +1,34 @@
+rules:
+  - id: review.sider.test.setup
+    pattern:
+      - token: def setup
+      - token: def teardown
+    message: |
+      setupやteardownを定義する場合には忘れずに `super` しましょう
+
+      これを忘れると、 `rr` などのテストのライフサイクルに依存するライブラリが正常に動作しなくなります。
+      また `add_setup_hook` や `add_teardown_hook` などのメソッドを使うのも良い方法です。
+    glob:
+      - "test/**/*_test.rb"
+      - "test/**/test_*.rb"
+    fail:
+      - def setup; end
+      - def teardown; end
+    pass:
+      - self.add_setup_hook { setup_fixture }
+      - self.add_teardown_hook FixtureCleanup
+  - id: review.sider.ruby.regexp
+    pattern:
+      regexp: \/\^.+\$\/
+    message: |
+      入力全体の冒頭と末尾にマッチする正規表現を書く場合には、^や$の代わりに\Aや\zを使ってください
+
+      Rubyでは他の多くの言語と異なり、正規表現における^や$は入力全体の代わりに行にマッチします。
+      (PCREにおける複数行モード(/m)の振る舞いがデフォルトです)
+      そのため、マッチしない行を含む複数行の入力をパスしてしまう恐れがあります。
+
+      参考: https://railsguides.jp/security.html#正規表現
+    fail:
+      - /^https?:\/\/[^\n]+$/i
+    pass:
+      - /\Ahttps?:\/\/[^\n]+\z/i

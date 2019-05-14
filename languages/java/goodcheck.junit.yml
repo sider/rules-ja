@@ -1,0 +1,44 @@
+- id: review.sider.java.junit.assert_arguments_order
+  pattern: 
+    - regexp: "Assert\\.assertEquals\\(.+, \".+\"\\);"
+  message: |
+    引数の順序が逆です
+    
+    `Assert.assertEquals` は第一引数に期待値、第二引数に実績値を渡すAPIです。
+
+    - http://junit.sourceforge.net/javadoc/org/junit/Assert.html#assertEquals(java.lang.Object,%20java.lang.Object)
+  glob:
+    - "**/*.java"
+  fail: |
+    Assert.assertEquals(actualName, "alice");
+  pass: |
+    Assert.assertEquals("alice", actualName);
+
+- id: review.sider.java.junit.disabled_annotation
+  pattern:
+    token: "import org.junit.jupiter.api.Disabled"
+  message: |
+    `@Disabled` したままのテストが残っていないかどうか確認してください。
+    テストを恒久的に無効化したい場合、テストの削除も検討してみてください。
+  justification:
+    - 意図して一時的にテストを無効化する場合
+  glob:
+    - "**/*.java"
+  fail: |
+    import org.junit.jupiter.api.Disabled;
+
+- id: review.sider.java.junit.ignore_annotation
+  pattern:
+    token: "@Ignore"
+  message: |
+    `@Ignore` したままのテストが残っていないかどうか確認してください。
+    テストを恒久的に無効化したい場合、テストの削除も検討してみてください。
+  justification:
+    - 意図して一時的にテストを無効化する場合
+  glob:
+    - "**/*.java"
+  fail: |
+    @Ignore
+    public void test() { .. }
+  pass: |
+    public void test() { .. }

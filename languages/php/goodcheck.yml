@@ -1,0 +1,22 @@
+rules:
+  - id: review.sider.php.70.ternary_operator
+    pattern:
+        regexp: 'isset\((\S+)\) *\? *\1 * : *(["''])\S+\2'
+    message: |
+      null合体演算子 を利用することで、よりシンプルなコードにできます
+
+      PHP 7.0 以降、 三項演算子 の代わりに null合体演算子 を利用できます。
+      可読性を上げるため活用しましょう。
+
+      - https://www.php.net/manual/ja/migration70.new-features.php#migration70.new-features.null-coalesce-op
+    fail:
+      - "isset($var) ? $var : 'var'"
+    pass:
+      - $var ?? 'var'
+    glob:
+      - "*.php"
+      - "**/*.php"
+    justification:
+      - 実行環境が PHP 7.0 未満の場合
+exclude:
+  - vendor

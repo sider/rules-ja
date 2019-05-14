@@ -1,0 +1,460 @@
+rules:
+  - id: review.sider.unity.texture-format
+    pattern: "textureFormat: 4"
+    message: |
+      RGBA 32bitsのテクスチャを使う必要はありますか？
+
+      圧縮テクスチャ形式を可能な場合は使用してください。
+      使用できない場合でも、可能な限りRGBA 32ビットではなくRGBA 16ビットのテクスチャを使ってください。
+
+      詳細については、グラフィックスパフォーマンスの最適化についての資料を参照してください。
+
+      - https://docs.unity3d.com/ja/current/Manual/OptimizingGraphicsPerformance.html
+    glob:
+      - "**/*.meta"
+    fail:
+      - "textureFormat: 4"
+    pass:
+      - "textureFormat: 7"
+
+  - id: review.sider.unity.mipmap
+    pattern: "enableMipMap: 1"
+    message: |
+      Mipmapの使用は必要ですか？
+
+      UIテクスチャなどの、Z深度がカメラに対して比較的不変であるオブジェクトに関しては、Mipmapを無効にしてください。
+      テクスチャの読み込みに掛かるメモリの約3分の1を節約することができます。
+
+      詳細については、パフォーマンスの最適化に関するベストプラクティスついての資料を参照してください。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity4.html
+    justification:
+      - 3Dシーンで利用されるテクスチャの場合
+    glob:
+      - "**/*.meta"
+    fail:
+      - "enableMipMap: 1"
+    pass:
+      - "enableMipMap: 0"
+
+  - id: review.sider.unity.is-readable
+    pattern: "isReadable: 1"
+    message: |
+      Read/Write enabledフラグを無効にしてください
+
+      このフラグが有効な場合、アセットデータへのスクリプトからのアクセスを実現するため、圧縮展開後のコピーがメモリに保持され続けます。
+      スクリプトからアクセスする必要がない場合には、このフラグを無効にすることで、メモリ使用量を大幅に削減できます。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/TextureImporter-isReadable.html
+    justification:
+      - スクリプトからアセットデータにアクセスする必要がある場合
+    glob:
+      - "**/*.meta"
+    fail:
+      - "isReadable: 1"
+    pass:
+      - "isReadable: 0"
+
+  - id: review.sider.unity.resources-folder
+    pattern:
+      token: Resources.Load
+    message: |
+      Resourcesフォルダを使わない設計で実装してください
+
+      Resourcesフォルダを使うと、
+
+      - 細かなメモリの管理が困難になり、
+      - 適切に使用されていない場合にアプリケーションの起動が遅くなり、
+      - プラットフォームに応じてコンテンツの内容を切り替えることが難しくなります。
+
+      代わりにAssetBundleを使うことを検討してください。
+
+      - https://unity3d.com/jp/learn/tutorials/topics/best-practices/resources-folder?playlist=30089
+    glob:
+      - "**/*.cs"
+    fail:
+      - Resources.Load("enemy", typeof(GameObject))
+    pass:
+      - AssetBundle.LoadAsset("enemy")
+
+  - id: review.sider.unity.force-mono
+    pattern: "forceToMono: 0"
+    message: |
+      オーディオクリップをモノチャンネルに変更してください
+
+      インポートされたオーディオクリップを強制的にモノチャンネルにすることで、その消費メモリが半分に削減できます。
+      モバイルデバイスでステレオスピーカーを搭載しているものは、まだ多くはありません。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity4.html
+    justification:
+      - ステレオスピーカーを掲載したモバイルデバイス向けにリリースする場合
+    glob:
+      - "**/*.meta"
+    fail:
+      - "forceToMono: 0"
+    pass:
+      - "forceToMono: 1"
+
+  - id: review.sider.unity.find
+    pattern:
+      - token: .Find(
+      - token: FindObjectOfType
+    message: |
+      完成版のコードではFind/FindObjectOfTypeを使用しない前提で開発してください
+
+      `Find` や `FindObjectOfType` は、メモリ内の全てのオブジェクトを走査するため、プロジェクトの規模が少し大きくなると実行速度に大きな影響を及ぼします。
+      多くの場合、先にコンポーネントをアタッチすることでFindしない実装ができます。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity7.html
+
+      シングルトンオブジェクトのアクセサは `Find` しても良い例外の代表ですが、その場合には `Find` した結果を適切にキャッシュし、 `Find` の呼び出しが繰り返し発生しないように十分に注意してください。
+    justification:
+      - プロトタイプ作成中の場合
+    glob:
+      - "**/*.cs"
+    fail:
+      - GameObject.Find("Hand")
+      - FindObjectOfType<TextMesh>()
+
+  - id: review.sider.unity.camera
+    pattern:
+      token: Camera.main
+    message: |
+      Camera.mainの呼び出しはコストが高いので、適切にキャッシュしましょう
+
+      `Camera.main` は `Object.FindObjectOfType` と同様に高コストなAPIです。
+      `Start` や `OnEnable` などのコールバックで結果をキャッシュする、Camera Managerクラスを作成する、などの方法で対応してください。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity7.html
+    justification:
+      - プロトタイプ作成中の場合
+      - キャッシュによってカメラへのアクセスが最小限に抑えられている場合
+    glob:
+      - "**/*.cs"
+    fail:
+      - Camera.main.enabled = true;
+
+  - id: review.sider.unity.RaycastAll-SphereCastAll
+    pattern:
+      - token: Physics.RaycastAll
+      - token: Physics.SphereCastAll
+    message: |
+      メモリ割り当てが発生するAPIです
+
+      `Physics.RaycastAll` や `Physics.SphereCastAll` を呼び出すとメモリの確保が発生します。
+      バッファをAPI利用者が指定することで、確保されたメモリの解放までをコントロールできる `NonAlloc` バージョンの使用を検討してください。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity7.html
+      - https://docs.unity3d.com/ja/current/ScriptReference/Physics.RaycastNonAlloc.html
+      - https://docs.unity3d.com/ja/current/ScriptReference/Physics.SphereCastNonAlloc.html
+    glob:
+      - "**/*.cs"
+    fail:
+      - results = Physics.RaycastAll(transform.position, transform.forward, 100.0F);
+    pass:
+      - Physics.RaycastNonAlloc(transform.position, transform.forward, results, Mathf.Infinity, layerMask);
+
+  - id: review.sider.unity.Distance
+    pattern: Vector3.Distance(
+    message: |
+      パフォーマンス向上のためDistanceではなくsqrMagnitudeを使ってください
+
+      平方根の計算よりも自乗の計算の方が高速です。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/Vector3-sqrMagnitude.html
+    glob:
+      - "**/*.cs"
+    fail:
+      - bool close = Vector3.Distance(p1, p2) < closeDistance;
+    pass:
+      - bool close = (p1 - p2).sqrMagnitude < closeDistance * closeDistance;
+
+  - id: review.sider.unity.string-concatenation
+    pattern:
+      - token: + "
+      - token: + '
+    message: |
+      文字列の連結にはStringBuilderを使ってください
+
+      C#の文字列はイミュータブルなので、通常の文字列操作では必ず新しい文字列の生成が発生します。
+      StringBuilderを使うことで、処理速度の高速化でき、メモリ割り当ての削減ができます。
+
+      特に、タイトなループで文字列の連結を行うと、パフォーマンスの問題を引き起こすことがあるので、注意してください。
+
+      - https://docs.unity3d.com/jp/current/Manual/BestPracticeUnderstandingPerformanceInUnity5.html
+    justification:
+      - 文字列連結がループ内ではなく、全体のパフォーマンスへの影響が小さい場合
+    glob:
+      - "Assets/**/*.cs"
+    fail:
+      - var s = "text" + "hoge";
+      - var s = "hello" + 'world';
+    pass:
+      - |
+        var builder = new StringBuilder();
+        builder.append("text");
+        builder.append("hoge");
+
+  - id: review.sider.unity.object-pool
+    pattern:
+      - token: Destroy(
+      - token: Instantiate(
+    message: |
+      Destroy, Instantiateのコストが問題になるならオブジェクトプーリングを検討してください
+
+      `Destroy` や `Instantiate` のコストは、何度も繰り返すと問題になることがあります。
+      生成されるオブジェクトの数が大きく、実際にパフォーマンスの問題になっている場合には、オブジェクトプーリングによって改善されることがあります。
+
+      - https://github.com/unity3d-jp-tutorials/2d-shooting-game/wiki/%E7%AC%AC01%E5%9B%9E-%E3%82%AA%E3%83%96%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88%E3%83%97%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0
+
+      さらに、オブジェクトプーリングを利用するべきオブジェクトが特定されたら、カスタムルールを追加して間違えて `Instantiate` されることを防ぎましょう。
+    justification:
+      - Instantiateの回数が少ない場合
+      - 実際に問題になっていない場合
+    glob:
+      - "Assets/**/*.cs"
+    fail:
+      - "Instantiate(bulletPrefab, position, angle)"
+      - "Destroy(bullet)"
+
+  - id: review.sider.unity.splashScreen
+    pattern:
+      token: "Application.isShowingSplashScreen"
+    message: |
+      isShowingSplashScreen は非推奨です
+
+      代わりに `SplashScreen.isFinished` を使ってください。
+
+      - https://docs.unity3d.com/ScriptReference/Rendering.SplashScreen-isFinished.html
+      - https://docs.unity3d.com/ScriptReference/Application-isShowingSplashScreen.html
+    glob:
+      - "Assets/**/*.cs"
+    fail:
+      - "Application.isShowingSplashScreen"
+    pass:
+      - "!SplashScreen.isFinished"
+
+  - id: review.sider.unity.loadlevel
+    pattern:
+      token: Application.LoadLevel
+    message: |
+      LoadLevelは非推奨メソッドです
+
+      代わりに `SceneManager.LoadScene` を使ってください。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/Application.LoadLevel.html
+      - https://docs.unity3d.com/ja/current/ScriptReference/SceneManagement.SceneManager.LoadScene.html
+    glob:
+      - "Assets/**/*.cs"
+    fail:
+      - Application.LoadLevel("HighScore");
+    pass:
+      - SceneManager.LoadScene("OtherSceneName", LoadSceneMode.Additive);
+
+  - id: review.sider.unity.OnLevelWasLoaded
+    pattern:
+      token: "OnLevelWasLoaded("
+    message: |
+      OnLevelWasLoaded メソッドの定義は非推奨です
+
+      代わりに `SceneManager.sceneLoaded` を使ってください。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/Application.LoadLevel.html
+    glob:
+      - "Assets/**/*.cs"
+    fail: |
+      void OnLevelWasLoaded(int index) {
+        //
+      }
+    pass: |
+      void Start () {
+        SceneManager.sceneLoaded += LevelWasLoad;
+      }
+      void LevelWasLoad(Scene scenename, LoadSceneMode SceneMode) {
+        //
+      }
+
+  - id: review.sider.unity.www
+    pattern:
+      token: WWW(
+    message: |
+      WWWは非推奨メソッドです
+
+      代わりに `UnityWebRequest`を使ってください。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/WWW.html
+    glob:
+      - "Assets/**/*.cs"
+    fail: |
+      using (WWW www = new WWW(url)) {
+        //
+      }
+    pass: |
+      using (UnityWebRequest request = UnityWebRequest.Get(url)) {
+        //
+      }
+
+  - id: review.sider.unity.updateList
+    pattern:
+      regexp: void\sUpdate.*\(\).*\s\{.*new\sList<.+\(\)\;.*\}
+      multiline: true
+    message: |
+      Updateの中での新しいコレクションの作成はできるだけ避けましょう
+
+      新しいコレクションを作成するとヒープに割り当てが行われ、GCが発生します。
+      `new` を繰り返し呼び出す代わりに `Clear` 関数を使用して内容を空にして再利用してください。
+
+      - https://unity3d.com/jp/learn/tutorials/topics/performance-optimization/optimizing-garbage-collection-unity-games
+    glob:
+      - "Assets/**/*.cs"
+    fail: |
+      void Update() {
+        var list = new List<int>();
+      }
+    pass: |
+      private List<int> myList = new List<int>();
+
+      void Update() {
+        myList.Clear();
+      }
+
+  - id: review.sider.unity.yield-return-boxing
+    pattern:
+      token: "yield return 0"
+    message: |
+      yield returnで、ヒープ割り当てが生じます
+
+      `yield return` に伴うboxingによって、ヒープ割り当てが生じています。
+      単にフレームを待機したいだけの場合は、 `yield return null` としてください。
+
+      - https://unity3d.com/jp/learn/tutorials/topics/performance-optimization/optimizing-garbage-collection-unity-games
+    justification:
+      - 値をyield returnする必要がある場合
+    glob:
+      - "Assets/**/*.cs"
+    fail:
+      - "yield return 0;"
+    pass:
+      - "yield return null;"
+
+  - id: review.sider.unity.debug
+    pattern:
+      token: Debug.
+    message: |
+      デバッグコードを消し忘れている可能性があります
+
+      デバッグコードは製品に必要がなくパフォーマンス低下にもつながるため消してください。
+
+      - https://docs.unity3d.com/ja/current/ScriptReference/Application.SetStackTraceLogType.html
+    glob:
+      - "Assets/**/*.cs"
+    justification:
+      - 意図的に出力をしている場合
+      - StackTraceLogType.Noneにしている場合
+    fail:
+      - Debug.Log
+
+  - id: review.sider.unity.platformDependentCompilation
+    pattern:
+      - token: if UNITY_EDITOR
+      - token: if UNITY_IOS
+      - token: if UNITY_ANDROID
+      - token: if UNITY_WEBGL
+    message: |
+      `CONDITIONAL` 属性を使用することを検討してください。
+
+      可能であれば `CONDITIONAL` に変更してください。
+      プラットフォーム依存コンパイルで実行のon/offは可能ですがメソッドの呼び出しには
+      コストがかかってしまいパフォーマンスに影響します。
+      メソッドに `CONDITIONAL` 属性をつけることで、コンパイラがメソッド呼び出しそのものを
+      スキップするためメソッド呼び出しコストがなくなります。
+
+      - https://docs.unity3d.com/ja/current/Manual/PlatformDependentCompilation.html
+      - https://docs.microsoft.com/en-us/dotnet/api/system.diagnostics.conditionalattribute?redirectedfrom=MSDN&view=netframework-4.8
+    glob:
+      - "Assets/**/*.cs"
+    fail: |
+      public static void Log(object o)
+      {
+          #if UNITY_EDITOR
+          UnityEngine.Debug.Log(o);
+          #endif
+      }
+    pass: |
+      [Conditional("UNITY_EDITOR")]
+      public static void Log(object o)
+      {
+          UnityEngine.Debug.Log(o);
+      }
+
+  - id: review.sider.unity.lightProbeUsage
+    pattern: 
+      token: "m_LightProbeUsage: 1"
+    message: |
+      `Light Probe` のサンプリングは必要ですか？
+
+      Unityではdefault設定がonにされているため利用しない場合はoffにしてください。
+      onに設定されている場合、利用していない場合でもパフォーマンス低下に繋がります。
+
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity4.html
+      - https://docs.unity3d.com/ja/current/Manual/LightProbes.html
+
+      <!---
+        m_LightProbeUsageはドキュメントに記載がありませんがLight Probeの設定のことです。 0 -> off, 1 -> on
+      -->
+    justification:
+      - 意図的に設定をしている場合
+    glob:
+      - "Assets/**/*.prefab"
+    fail:
+      - "m_LightProbeUsage: 1"
+    pass:
+      - "m_LightProbeUsage: 0"
+
+  - id: review.sider.unity.reflectionProbeUsage
+    pattern: 
+      token: "m_ReflectionProbeUsage: 1"
+    message: |
+      `Reflection Probe` のサンプリングは必要ですか？
+
+      Unityではdefault設定がonにされているため利用しない場合はパフォーマンス最適化のためoffにしてください。
+      onに設定されている場合、利用していない場合でもパフォーマンス低下に繋がります。
+
+      - https://docs.unity3d.com/ja/current/Manual/class-ReflectionProbe.html
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity4.html
+
+      <!---
+        0 -> off, 1 -> on
+      -->
+    justification:
+      - 意図的に設定をしている場合
+    glob:
+      - "Assets/**/*.prefab"
+    fail:
+      - "m_ReflectionProbeUsage: 1"
+    pass:
+      - "m_ReflectionProbeUsage: 0"
+
+  - id: review.sider.unity.castShadows
+    pattern: 
+      token: "m_CastShadows: 1"
+    message: |
+      影の表示は必要ですか？
+
+      Unityではdefault設定がonにされているため影を利用しない場合はパフォーマンス最適化のためoffにしてください。
+      onに設定されている場合、利用していない場合でもパフォーマンス低下に繋がります。
+
+      - https://docs.unity3d.com/ja/current/Manual/ShadowOverview.html
+      - https://docs.unity3d.com/ja/current/Manual/BestPracticeUnderstandingPerformanceInUnity4.html
+
+      <!---　
+        0 -> off, 1 -> on
+      -->
+    justification:
+      - 意図的に設定をしている場合
+    glob:
+      - "Assets/**/*.prefab"
+    fail:
+      - "m_CastShadows: 1"
+    pass:
+      - "m_CastShadows: 0"
