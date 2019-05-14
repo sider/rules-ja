@@ -1,0 +1,124 @@
+- id: review.sider.java.spring.autowired_annotation
+  pattern: "@Autowired"
+  message: |
+    コンストラクタが単一の場合には `@Autowired` アノテーションは不要です
+
+    コンストラクタが単一である場合、暗黙的にコンストラクタインジェクションが行われるため、 `@Autowired` の明示的な指定は冗長な記述となります。
+    また、インジェクション方法は、コンストラクタインジェクションが推奨されます。
+
+    - https://spring.io/blog/2016/03/04/core-container-refinements-in-spring-framework-4-3
+  glob:
+    - "**/*.java"
+  justification:
+    - Spring 4.3未満を使用している場合
+    - 暗黙のコンストラクタインジェクションが利用できない場合
+
+- id: review.sider.java.spring.component_annotation
+  pattern: "@Component"
+  message: |
+    `@Component` アノテーションを付与する場合には、より意味を限定した他のアノテーションが使えないか確認しましょう。
+
+    Spring Frameworkには、ドメイン駆動開発内で言及されているレイヤードアーキテクチャでの各コンポーネントに対応する、
+    ステレオタイプアノテーションがいくつか用意されており、コンポーネントの役割に応じてこれらを使い分けることにより、
+    クラスを理解する際の助けとなります。
+
+    代表的なステレオタイプアノテーションには、以下のようなものがあります。
+
+    - `@Controller`
+    - `@Service`
+    - `@Repository`
+
+    - https://docs.spring.io/spring-framework/docs/current/spring-framework-reference/core.html#beans-stereotype-annotations
+  glob:
+    - "**/*.java"
+  fail: |
+    @Component public class UserService { .. }
+  pass: |
+    @Service public class UserService { .. }
+
+- id: review.sider.java.spring.csrf_disable
+  pattern:
+    token: "csrf().disable()"
+  message: |
+    CSRF保護が無効化されています
+
+    一般的なフォームベースの入力が存在するようなWebアプリケーションにおいては、
+    この機能を有効化して、CSRFからサイトを保護してください。
+
+    - https://docs.spring.io/spring-security/site/docs/current/reference/html5/#csrf
+    - https://find-sec-bugs.github.io/bugs.htm#SPRING_CSRF_PROTECTION_DISABLED
+  justification:
+    - Spring Securityを使用していない場合
+    - 同一生成元ポリシー等を担保にリクエスト元を保証できる場合
+  glob:
+    - "**/*.java"
+  fail: |
+    http.csrf().disable();
+
+- id: review.sider.java.spring.repository_annotation
+  pattern: "@Repository"
+  message: |
+    `@Repository` アノテーションを付与する場合には、「リポジトリ」になっているか確認しましょう
+
+    ここで言うリポジトリとは、Domain-Driven Design (Evans, 2003)によって定義された「オブジェクトの保存・取得・検索をカプセル化した、コレクションをエミュレートする機構」です。
+    Java EEのData Access Objectのようなパターンによって定義されたクラスに、このアノテーションを与えることもできますが、慎重に検討してください。
+
+    リポジトリパターンでは、DAOとは違い、永続化ストアの具体的な実装に依存してはいけません。
+    DAOをリポジトリとして扱う場合には、それが適切かどうかアプリケーションの要件と合わせて慎重に検討してください。
+
+    - https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/stereotype/Repository.html
+    - https://martinfowler.com/eaaCatalog/repository.html
+  glob:
+    - "**/*.java"
+  fail: |
+    @Repository public class JdbcUserRepository { .. }
+
+- id: review.sider.java.spring.request-mapping_annotation
+  pattern: "@RequestMapping"
+  message: |
+    `@RequestMapping` アノテーションにmethodを指定する場合には `@GetMapping` などに変換できるかもしれません
+
+    例えば `@RequestMapping(method = RequestMethod.GET)` の意味を持つアノテーションとして、 `@GetMapping` を利用できます。
+    同様に
+
+    - `@PostMapping`
+    - `@PutMapping`
+    - `@DeleteMapping`
+    - `@PatchMapping`
+
+    が提供されています。
+
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/GetMapping.html
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PostMapping.html
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PutMapping.html
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/DeleteMapping.html
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/PatchMapping.html
+  justification:
+    - methodの指定がない場合
+    - Spring 4.3未満を使用している場合
+  glob:
+    - "**/*.java"
+  fail: 
+    - "@RequestMapping(method = RequestMethod.GET) public String index() { ... }"
+  pass:
+    - "@GetMapping public String index() { ... }"
+
+- id: review.sider.java.spring.response-body_annotation
+  pattern: "@ResponseBody"
+  message: |
+    `@RestController` アノテーションが利用できます
+
+    `@ReponseBody` と `@RestController` の組み合わせは、 `@RestController` アノテーションにまとめることができます。  
+
+    - https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/RestController.html
+  glob:
+    - "**/*.java"
+  justification:
+    - Spring 4.0未満を使用している場合
+  fail: |
+    @Controller
+    @ResponseBody
+    class UsersController { .. }
+  pass: |
+    @RestController
+    class UsersController { .. }

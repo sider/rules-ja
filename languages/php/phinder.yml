@@ -19,7 +19,7 @@
       - password_hash($raw_password, PASSWORD_DEFAULT)
 
 - id: review.sider.setcookie
-  pattern: 
+  pattern:
     - setcookie(_)
     - setcookie(_, _)
     - setcookie(_, _, _)
@@ -104,7 +104,7 @@
     gmp_random ではなく gmp_random_range を使ってください
 
     この関数は、PHP 7.2 で非推奨となりました。
-    gmp_random で得られる乱数の上限はプラットフォーム依存で、ユーザーが事前に確認することはできません。    
+    gmp_random で得られる乱数の上限はプラットフォーム依存で、ユーザーが事前に確認することはできません。
     上限と下限が指定できる、より柔軟な gmp_random_range 関数を利用してください。
 
     - https://wiki.php.net/rfc/deprecations_php_7_2#gmp_random
@@ -128,4 +128,183 @@
     - image2wbmp($image)
   pass:
     - imagewbmp($image)
+- id: review.sider.php.debug
+  pattern:
+    - var_dump(...)
+    - print_r(...)
+  message: |
+    デバッグコードを消し忘れている可能性があります
 
+    開発時に変数を確認する際は、xdebug等を使うことでデバッグコードを入れずにデバッグすることができます。
+    この変数を意図的に使っている場合はこの警告を無視してください。
+
+    - https://www.php.net/manual/ja/function.var-dump.php
+  fail:
+    - var_dump($var)
+    - print_r($var)
+  justification:
+    - 意図的に出力をしている場合
+- id: review.sider.php.phpinfo
+  pattern:
+    - phpinfo()
+    - phpinfo(_)
+  message: |
+    本番環境のPHP設定値が公開されるリスクがあります
+
+    この関数はPHP設定値を出力します。
+    攻撃の糸口になる可能性もあるため、本番環境で出力されないようにしましょう。
+
+    - https://www.php.net/manual/ja/function.phpinfo.php
+    - http://blog.shinkaku.co.jp/archives/19853570.html
+  fail:
+    - phpinfo()
+  justification:
+    - 開発環境のみ出力されるようになっている場合
+- id: review.sider.php.exec_command
+  pattern:
+    - exec(_)
+    - system(...)
+    - passthru(...)
+    - shell_exec(_)
+  message: |
+    任意のシェルコマンドが実行されてしまうリスクがあります
+
+    この関数は、引数の文字列をコマンドとして実行します。
+    ユーザが入力した値を実行しないよう考慮してください。
+    入力値を利用する場合、 escapeshellarg を使ってエスケープしてください。
+
+    - https://www.php.net/manual/ja/function.exec.php
+    - https://www.php.net/manual/ja/function.system.php
+    - https://www.php.net/manual/ja/function.passthru.php
+    - https://www.php.net/manual/ja/function.exec.php
+
+    - https://www.php.net/manual/ja/function.escapeshellarg.php
+  fail:
+    - eval($code)
+  justification:
+    - 引数にユーザ入力値が含まれない場合
+- id: review.sider.php.htmlspecialchars
+  pattern:
+    - htmlspecialchars(_)
+  message: |
+    エンティティ化が不十分なため、第二引数を指定してください
+
+    この関数は標準では ' (シングルクォーテーション)をエンティティ化しません
+    第二引数で ENT_QUOTES などの適切な値を設定してください。
+
+    - https://www.php.net/manual/ja/function.htmlspecialchars.php
+  fail:
+    - htmlspecialchars($values)
+  pass:
+    - htmlspecialchars($values, ENT_QUOTES)
+- id: review.sider.php.extract
+  pattern: extract(_)
+  message: |
+    変数名が衝突した場合の挙動を明示的に指定しましょう
+
+    基本的には、 EXTR_SKIP や第三引数を指定して既存の変数を上書きしないようにすべきです。
+    またユーザ入力（ $_GET , $_FILES 等）にこの変数は使わないでください。
+
+    - https://www.php.net/manual/ja/function.extract.php
+  fail:
+    - extract($values)
+    - extract($_SERVER)
+    - extract($_GET)
+    - extract($_POST)
+    - extract($_FILES)
+    - extract($_COOKIE)
+    - extract($_REQUEST)
+  pass:
+    - extract($values, EXTR_SKIP)
+    - extract($values, EXTR_PREFIX_ALL, 'var_')
+- id: review.sider.php.70.dirname
+  pattern: dirname(dirname(_))
+  message: |
+    二階層以上遡る場合、第二引数を指定してください
+
+    PHP 7.0 以降、第二引数に遡る親ディレクトリの数を指定できます。
+    可読性を高めるために第二引数を使いましょう。
+
+    - https://www.php.net/manual/ja/function.dirname.php
+  fail:
+    - dirname(dirname(__FILE__))
+  pass:
+    - dirname(__FILE__, 2)
+- id: review.sider.php.70.unserialize
+  pattern: unserialize(_)
+  message: |
+    オブジェクトインジェクションを防ぐため、生成されるクラスを限定しましょう
+
+    PHP 7.0 以降、第二引数を指定して生成されるクラスを限定することが可能です。
+
+    - https://www.php.net/manual/ja/function.dirname.php
+    - https://blog.tokumaru.org/2017/09/introduction-to-object-injection.html
+  fail:
+    - unserialize($object)
+  pass:
+    - unserialize($object, ['allowed_classes' => ["classA"]])
+  justification:
+    - 実行環境が PHP 7.0 未満の場合
+- id: review.sider.php.laravel.debug
+  pattern:
+    - dd(...)
+    - dump(...)
+  message: |
+    デバッグコードを消し忘れている可能性があります
+
+    開発時に変数を確認する際は、xdebug等を使うことでデバッグコードを入れずにデバッグすることができます。
+
+    - https://readouble.com/laravel/5.8/ja/helpers.html#method-dd
+    - https://readouble.com/laravel/5.8/ja/helpers.html#method-dump
+- id: review.sider.php.laravel.58.deprecated
+  pattern:
+    - array_add(...)
+    - array_collapse(_)
+    - array_divide(_)
+    - array_dot(...)
+    - array_except(_,_)
+    - array_first(...)
+    - array_flatten(_)
+    - array_forget(_,_)
+    - array_get(...)
+    - array_has(_,_)
+    - array_last(...)
+    - array_only(_,_)
+    - array_pluck(...)
+    - array_prepend(...)
+    - array_pull(...)
+    - array_random(...)
+    - array_set(_,_,_)
+    - array_sort(...)
+    - array_sort_recursive(_)
+    - array_where(_,_)
+    - array_wrap(_)
+    - camel_case(_)
+    - ends_with(_,_)
+    - kebab_case(_)
+    - starts_with(_,_)
+    - snake_case(...)
+    - str_after(_,_)
+    - str_before(_,_)
+    - str_contains(_,_)
+    - str_finish(_,_)
+    - str_is(_,_)
+    - str_limit(...)
+    - str_plural(...)
+    - str_random()
+    - str_random(_)
+    - str_replace_array(_,_,_)
+    - str_replace_first(_,_,_)
+    - str_replace_last(_,_,_)
+    - str_singular(_)
+    - str_slug(...)
+    - str_start(_,_)
+    - studly_case(_)
+    - title_case(_)
+  message: |
+    Arr , Str 内の元の関数を使ってください
+
+    この関数は Laravel 5.8 で非推奨となりました。
+    Laravel 5.9 では削除される予定なので、 Arr , Str を使いましょう。
+
+    - https://readouble.com/laravel/5.8/ja/upgrade.html

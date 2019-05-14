@@ -1,0 +1,283 @@
+rules:
+  - id: review.sider.ruby.pp
+    pattern:
+      - self.p
+      - self.pp
+    message: |
+      デバッグプリントを消してください
+
+      `p` や `pp` の出力が欲しい場合には `#inspect` メソッドが使えます。
+      デバッグ情報をプロダクション環境下で出力したい場合にはLoggerを使うと良いと思います。
+    examples:
+      - before: pp obj
+        after: puts obj.inspect
+      - before: pp message
+        after: logger.debug message.inspect
+
+  - id: review.sider.ruby.open
+    pattern: File.open(...) !{}
+    message: |
+      Fileの入出力には、ブロックを使いましょう
+
+      ブロックを使うことで、 `#close` を忘れることがなくなります。
+
+      - https://docs.ruby-lang.org/ja/2.6.0/method/File/s/open.html
+    examples:
+      - before: |
+          io = File.open("foo.txt")
+          io.write("hello world")
+          io.close
+        after: |
+          File.open("foo.txt") do |io|
+            io.write("hello world")
+          end
+
+  - id: review.sider.ruby.exception
+    pattern: Exception
+    message: |
+      ExceptionとあるのはStandardErrorの間違いではありませんか？
+
+      Rubyでは、アプリケーションで `rescue` が必要な可能性が高い例外は `StandardError` のサブクラスとして定義されます。
+      つまり、通常は `Exception` を `rescue` したり継承したりする必要はありません。
+
+      - https://docs.ruby-lang.org/ja/2.6.0/class/StandardError.html
+    justification:
+      - 発生する全ての例外を `rescue` したい場合
+      - 通常 `rescue` されたくない例外の場合
+    examples:
+      - before: class MyError < Exception; end
+        after: class MyError < StandardError; end
+      - before: |
+          begin
+            foo()
+          rescue Exception => exn
+            # Error handler
+          end
+        after: |
+          begin
+            foo()
+          rescue => exn
+            # Error handler
+          end
+
+  - id: review.sider.test.assert_raises
+    pattern: self.assert_raises(...) {}
+    message: |
+      あなたはassert_raisesを理解していますか？
+
+      * `assert_raises` は、指定された例外クラスのサブクラスは検査しません
+      * assertionの説明メッセージを最後の引数として指定することができます
+      * 成功した場合（期待する例外が `raise` された場合）には、例外オブジェクトが返り値として得られます
+
+      活用していきましょう。
+    justification:
+      - 読んで欲しいだけなので、特に修正の要求ではありません
+
+  - id: review.sider.ruby.require-pp
+    pattern:
+      subject: "require(:string: as 'pp)"
+      where:
+        pp: pp
+    message: |
+      Ruby 2.5からはppを `require` する必要がなくなりました
+
+      （ところで、これもデバッグプリントの消し忘れではありませんか？？）
+
+      - https://docs.ruby-lang.org/ja/latest/method/Kernel/m/pp.html
+    justification:
+      - Rubyが古い場合
+    examples:
+      - before: require "pp"
+
+  - id: review.sider.ruby.inject
+    pattern: _.inject(_) {}
+    message: |
+      each_with_object で上手く書けませんか？
+
+      新しい配列やハッシュに値を設定するようなパターンは、 `#each_with_object` を使うと上手く書けます。
+
+      ```rb
+      # before
+      map = records.inject({}) do |acc, record|
+        acc[record.id] = record
+        acc
+      end
+
+      # after
+      map = records.each_with_object({}) do |record, hash|
+        hash[record.id] = record
+      end
+      ```
+    justification:
+      - 好みとか読みやすさの問題なのでどちらでも（ `merge!` などを使うと `inject` でも良い感じに書けますね）
+    examples:
+      - before: |
+          records.inject([]) do |acc, record|
+            acc.push *record.children
+          end
+        after: |
+          records.each.with_object([]) do |record, children|
+            children.push *record.children
+          end
+
+  - id: review.sider.ruby.includep
+    pattern:
+      - _.include?(_)
+      - _.member?(_)
+    message: |
+      include? や member? のレシーバは配列ではありませんか？
+
+      レシーバが配列の場合には、その要素が走査されるため、配列の大きさと呼び出し回数に応じて、アプリケーションのパフォーマンスに影響が生じます。
+      呼び出し回数が多い場合には `Set` を使うと、数百倍のオーダーで動作速度が改善することがあります。
+
+      - https://docs.ruby-lang.org/ja/latest/library/set.html
+    justification:
+      - レシーバが配列ではない場合
+      - レシーバが配列であったとしても、呼び出し回数が少ない場合
+      - レシーバが配列であったとしても、要素数が少ない場合
+
+  - id: review.sider.rails.find_bang
+    pattern:
+      - _.find(_)
+      - _.find_by!
+    message: |
+      find や find_by! は、レコードが見つからなかったときには例外を発生します
+
+      アプリケーションの事前条件としてレコードが確実にあるときには `find` や `find_by!` を使いましょう。
+      （つまり、レコードがなかったときには不正な処理として、例外で即終了して良い場合。）
+
+      レコードの有無がわからない場合には、 `find_by` を使うのが良いでしょう。
+
+      - https://api.rubyonrails.org/classes/ActiveRecord/Associations/CollectionProxy.html#method-i-find
+      - https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find_by-21
+    examples:
+      - before: |
+          article = user.articles.find(id) or return
+        after: |
+          article = user.articles.find_by(id: id) or return
+      - before: |
+          user = User.find_by!(email: params[:email])
+          redirect_to user_url(user)
+
+  - id: review.sider.rails.save
+    pattern:
+      - save() [!conditional]
+      - destroy() [!conditional]
+      - "update(..., !validate: false, ...) [!conditional]"
+    message: |
+      ActiveRecord のsaveやupdateなどは、失敗した場合には偽を返します
+
+      成功したか確認して、失敗した場合の処理を実装しましょう。
+      簡単に失敗を通知するには `save!` や `update!` を使いましょう。（Railsのエラー画面が表示される。）
+
+      - https://api.rubyonrails.org/classes/ActiveRecord/Persistence.html#method-i-save
+      - https://api.rubyonrails.org/classes/ActiveRecord/Persistence.html#method-i-update
+      - https://api.rubyonrails.org/classes/ActiveRecord/Persistence.html#method-i-destroy
+    justification:
+      - 失敗から回復する方法がないため、失敗を単に無視したい場合
+    examples:
+      - before: article.save
+        after: article.save!
+      - before: user.update(params[:user])
+        after: user.update!(params[:user])
+
+  - id: review.sider.rails.perform_later
+    pattern:
+      - _.perform_later(_, ...)
+    message: |
+      Jobの作成、登録にはいくつか注意が必要です
+
+      新しく `INSERT` したレコードをバックグラウンドジョブに登録する場合には、トランザクションが途中でabortしても大丈夫か確認しましょう。
+      一般的には、トランザクションの中からバックグラウンドジョブを登録することは、避けるべきです。
+
+      既存のジョブの登録、実装を書き換える場合には、既にキューに登録されているジョブの処理について考えましょう。
+      既に登録されたジョブを上手く処理できるように実装するか、それらのジョブの実行については諦めるという、二つの方法があります。
+    justification:
+      - 読んだらCloseしましょう
+    examples:
+      - before: GuestsCleanupJob.perform_later(user, guest)
+  - id: review.sider.rails_controller.unscoped_find
+    pattern:
+      - subject: "find(params.[](:symbol: as 'id))"
+        where:
+          id: /_id/
+      - subject: "params.require(:symbol: as 'id)"
+        where:
+          id: /_id/
+    message: |
+      paramsの値はユーザーが任意に書き換え可能であることに注意してください。許可されないレコードが参照されることはありませんか？
+
+      例えば、`ActiveRecord#FindMethods#find`に`params[:todo_item_id]`を渡して、特定のToDoの詳細画面を表示するようなアプリケーションでは
+      ユーザーが`params[:todo_item_id]`を自由に変更してリクエストできるため、別のユーザーのToDoアイテムを見ることができてしまいます。
+      このような問題を防ぐために、発行するクエリに権限チェックの条件を加えるか、findした後にユーザーの権限を確認することを推奨します。
+
+      参考: https://railsguides.jp/security.html#権限昇格
+    justification:
+      - 注意喚起のためのリマインダです。既に確認済み、または確認する必要が無い、ということが確認できればCloseしてください
+    examples:
+      - before: |
+          def show
+            todo = TodoItem.find(params[:todo_item_id])
+            render locals: { todo: todo }
+          end
+      - before: |
+          def show
+            todo = TodoItem.find(params.require(:todo_item_id))
+            render locals: { todo: todo }
+          end
+  - id: review.sider.rails_migration.implicit_null
+    pattern:
+      - subject: "_.'transformations(:symbol:, ..., !null: _, ...)"
+        where:
+          transformations:
+            - references
+            - belongs_to
+            - string
+            - text
+            - integer
+            - bigint
+            - float
+            - decimal
+            - numeric
+            - datetime
+            - time
+            - date
+            - binary
+            - boolean
+            - json
+    message: |
+      テーブル追加などのマイグレーションでは、nullオプションを明示的に書くことをおすすめします
+
+      例えばMySQLでは、`null`オプションを省略するとデフォルトで`null: true`になります。
+      NULLが入らないことが予めわかっている場合、`null: false`で作成する方が、意図しないデータが保存されることを防げるため安全です。
+      NULLが入る可能性があることがわかっている場合は、それを明示的に残すためにも、`null`オプションを省略しないことがおすすめです。
+    examples:
+      - before: 't.belongs_to :email'
+      - after: 't.belongs_to :email, null: true'
+
+check:
+  - path: /
+    rules:
+      - only: review.sider.ruby
+  - path: /app
+    rules:
+      - append: review.sider.rails
+  - path: /app/controllers
+    rules:
+      - append: review.sider.rails_controller
+  - path: /app/models
+    rules:
+      - append: review.sider.rails_model
+  - path: /db
+    rules:
+      - append: review.sider.rails_migration
+  - path: /test
+    rules:
+      - append: review.sider.test
+  - path: /spec
+    rules:
+      - append: review.sider.rspec
+
+
+
+
