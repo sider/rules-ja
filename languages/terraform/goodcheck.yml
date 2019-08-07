@@ -1,6 +1,6 @@
 rules:
   - id: review.sider.terraform.rds.apply_immediately
-    pattern: 
+    pattern:
       - token: apply_immediately = true
       - token: apply_immediately = "true"
     message: |
@@ -13,7 +13,7 @@ rules:
 
       See: https://www.terraform.io/docs/providers/aws/r/db_instance.html
 
-    glob: 
+    glob:
       - "**/*.tf"
     fail:
       - apply_immediately = true
@@ -27,13 +27,13 @@ rules:
     pattern: resource "aws_iam_policy_attachment"
     message: |
       aws_iam_policy_attachmentでは、ポリシーが排他的に適用されますので注意してください。
-      
+
       aws_iam_policy_attachmentでポリ英ーを定義すると、terraform applyの際に、既に紐づけている別のuser、
       role、groupのポリシーが外れ、意図しない変更になる可能性があります。
-      
-      aws_iam_role_policy_attachment, aws_iam_user_policy_attachment, 
+
+      aws_iam_role_policy_attachment, aws_iam_user_policy_attachment,
       aws_iam_group_policy_attachment を使って個別にポリシーを紐付けましょう。
-      また、できれば最初から aws_iam_role_policy_attachment, aws_iam_user_policy_attachment, 
+      また、できれば最初から aws_iam_role_policy_attachment, aws_iam_user_policy_attachment,
       aws_iam_group_policy_attachment を使って個別にポリシーを指定するようにしましょう。
 
       例：以下の設定では、指定のユーザ、ロール、グループに対するポリシーが、policy_arnで指定されたものだけに限定されます。
@@ -49,11 +49,11 @@ rules:
       See: https://www.terraform.io/docs/providers/aws/r/iam_policy_attachment.html
 
     fail:
-      - resource "aws_iam_policy_attachment" "test-attach" { ... 適用したいポリシー ... } 
+      - resource "aws_iam_policy_attachment" "test-attach" { ... 適用したいポリシー ... }
     pass:
-      - resource "aws_iam_role_policy_attachment" "test-role-attach" { ... 適用したいポリシー ... } 
-      - resource "aws_iam_user_policy_attachment" "test-user-attach" { ... 適用したいポリシー ... } 
-      - resource "aws_iam_group_policy_attachment" "test-group-attach" { ... 適用したいポリシー ... } 
+      - resource "aws_iam_role_policy_attachment" "test-role-attach" { ... 適用したいポリシー ... }
+      - resource "aws_iam_user_policy_attachment" "test-user-attach" { ... 適用したいポリシー ... }
+      - resource "aws_iam_group_policy_attachment" "test-group-attach" { ... 適用したいポリシー ... }
     justification: |
       他に紐づけられているポリシーがない場合は、同じポリシーを指定のユーザ、グループ、ロールに一括で
       設定するためにaws_iam_policy_attachmentを使っても良いでしょう。
@@ -62,7 +62,7 @@ rules:
 
   - id: review.sider.terraforrm.aws.rds.storage
     pattern:
-      token: allocated_storage = 
+      token: allocated_storage =
     message: |
       RDSのストレージのサイズを大きくする場合、縮小することはできません。
 
@@ -72,7 +72,24 @@ rules:
 
       See: https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_PIOPS.StorageTypes.html
 
-    glob: 
+    glob:
       - "**/*.tf"
     justification:
       - ストレージサイズが増加の場合。
+
+  - id: review.sider.terraforrm.aws.s3.bucket_name
+    pattern:
+      token: bucket =
+    message: |
+      S3 バケット作成後はバケット名を変更できないため、慎重に選択してください。また、バケット名は必ずAmazon S3 内の既存バケット名の中で一意になるようにします。
+
+      バケットの命名規則は細かなルールがあります。
+      また、バケット名は全リージョン内でユニークになる必要があります。
+      terraform planだけではバケット名の一意性を検出できないので、一意かどうかも含めて、命名規則を確認してください。
+
+      See: https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/BucketRestrictions.html
+
+    glob:
+      - "**/*.tf"
+    justification:
+      - バケットの命名の一意性が確認済みであること。
